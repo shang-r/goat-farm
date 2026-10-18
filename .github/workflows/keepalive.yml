@@ -1,0 +1,20 @@
+# 羊场管家云端保活任务
+# 每 5 分钟访问一次云端服务，防止 Render 免费实例休眠（15 分钟无流量会休眠）
+# GitHub 公共仓库 Actions 完全免费，无需注册任何第三方监控服务
+name: keepalive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # 每 5 分钟一次（UTC）
+  workflow_dispatch:        # 支持手动触发，便于测试
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping 云端健康检查
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 \
+            https://goat-farm-xghp.onrender.com/api/health || echo 000)
+          echo "云端返回 HTTP $code"
+          # 只要服务器有请求进来就能保持唤醒，返回码仅作日志
