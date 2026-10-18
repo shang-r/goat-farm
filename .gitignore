@@ -1,0 +1,16 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 本地数据库文件（云端用 Postgres，不需要上传本地 sqlite 数据）
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

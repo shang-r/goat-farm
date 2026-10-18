@@ -1,0 +1,21 @@
+# Render Blueprint 配置：上传代码到 GitHub 后，在 Render 选这个仓库即可
+# 自动创建：免费 PostgreSQL 数据库 + Web 服务，并自动注入 DATABASE_URL
+
+databases:
+  - name: goat-farm-db
+    plan: free
+    databaseName: goatfarm
+    user: goatfarm
+
+services:
+  - type: web
+    name: goat-farm-server
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: goat-farm-db
+          property: connectionString

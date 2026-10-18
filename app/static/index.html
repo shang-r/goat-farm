@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#1f7a52">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="羊场管家">
+<meta name="format-detection" content="telephone=no">
+<title>羊场管家 · 奶山羊养殖管理</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- 启动闪屏：白屏一闪而过很掉价，先给个品牌页 -->
+<div id="splash" aria-hidden="true">
+  <img class="splash-logo" src="icon-192.png" alt="">
+  <div class="splash-name">羊场管家</div>
+  <div class="splash-sub">奶山羊养殖管理</div>
+  <div class="splash-dots"><i></i><i></i><i></i></div>
+</div>
+
+<!-- 登录页 -->
+<div id="login" class="login hidden">
+  <div class="login-card">
+    <div class="login-logo">🐐</div>
+    <h1 class="login-title">羊场管家</h1>
+    <p class="login-sub">奶山羊养殖场管理系统</p>
+    <form id="loginForm" autocomplete="on">
+      <label class="field">
+        <span>账号</span>
+        <input name="username" type="text" autocomplete="username" placeholder="请输入账号" required>
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">登 录</button>
+      <p class="login-hint" id="loginHint"></p>
+    </form>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">🐐</span>
+      <span class="topbar-title" id="pageTitle">看板</span>
+    </div>
+    <div class="topbar-right">
+      <span id="netBadge" class="net-badge hidden" title="当前离线，已填写的内容会存在本机，联网后自动上传">离线</span>
+      <button class="icon-btn" data-action="search" aria-label="搜索">🔍</button>
+      <button class="icon-btn" data-action="go-me" aria-label="我的">👤</button>
+    </div>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <a class="tab" href="#/home"    data-tab="home"><i>📊</i><span>看板</span></a>
+    <a class="tab" href="#/goats"   data-tab="goats"><i>🐑</i><span>羊只</span></a>
+    <a class="tab" href="#/herd"    data-tab="herd"><i>📐</i><span>存栏</span></a>
+    <a class="tab" href="#/milk"    data-tab="milk"><i>🍼</i><span>产奶</span></a>
+    <a class="tab" href="#/fin"     data-tab="fin"><i>💰</i><span>记账</span></a>
+    <a class="tab" href="#/rep"     data-tab="rep"><i>📑</i><span>报表</span></a>
+  </nav>
+</div>
+
+<div id="toast" class="toast-wrap"></div>
+<div id="sheetRoot"></div>
+
+<!-- Service Worker 尽早注册，别等模块加载完 -->
+<script>
+if ('serviceWorker' in navigator) {
+  addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

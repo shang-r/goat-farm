@@ -1,0 +1,9 @@
+# 奶山羊养殖场管理系统 · 依赖
+# 标准库部分（sqlite3 / hmac / hashlib / secrets / io）无需安装。
+fastapi>=0.140
+uvicorn>=0.30
+openpyxl>=3.1
+# 云端 PostgreSQL 数据库驱动（Render 部署必需；本地 SQLite 模式无需使用）
+psycopg2-binary>=2.9
+# 仅 smoke_test.py 需要
+httpx>=0.27
