@@ -1,5 +1,5 @@
 import {
-  api, esc, store, ok, err, sheet, formSheet, on, POST, PUT, download,
+  api, esc, store, ok, err, sheet, formSheet, on, POST, PUT, DEL, download,
   confirmLogout,
 } from '../core.js';
 

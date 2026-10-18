@@ -120,6 +120,7 @@ export function editMilk(m, date) {
     ],
     onDelete: m ? async () => { await DEL('/api/milk/' + m.id); ok('已删除'); location.hash = '#/milk'; } : null,
     onSubmit: async (d) => {
+      d.discard_kg = d.discard_kg ?? 0;   // 后端要求数字，空填 0
       const amt = (+d.weight_kg || 0) * (+d.price || 0);
       if (m) await PUT('/api/milk/' + m.id, d);
       else await POST('/api/milk', d);

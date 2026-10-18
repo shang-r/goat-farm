@@ -9,7 +9,7 @@
  * 接口缓存按用户隔离：cache key 里带 token 尾部，换人登录不会串数据。
  */
 
-const VER = 'v4';
+const VER = 'v5';
 const SHELL = 'shell-' + VER;
 const API = 'api-' + VER;
 const API_MAX = 24 * 3600 * 1000;   // 接口缓存保留 24 小时，超期的清掉
@@ -108,15 +108,20 @@ async function cacheFirst(req) {
   }
 }
 
-/* 接口：网络优先，断网回退缓存。cache key 按用户隔离。 */
+/* 接口：网络优先，断网回退缓存。cache key 按用户隔离。
+ * 给网络请求 25 秒上限：免费云实例冷启动时别让页面无限转圈。 */
 async function apiNetworkFirst(req) {
   const cache = await caches.open(API);
   const key = cacheKey(req);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
   try {
-    const res = await fetch(req);
+    const res = await fetch(req, { signal: ctrl.signal });
+    clearTimeout(timer);
     if (res.ok) cache.put(key, res.clone()).catch(() => {});
     return res;
   } catch {
+    clearTimeout(timer);
     const hit = await cache.match(key).catch(() => null);
     if (!hit) {
       return new Response(

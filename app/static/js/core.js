@@ -23,6 +23,17 @@ export class OfflineQueued extends Error {
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
+/** 带超时的 fetch：免费云实例冷启动可能要 30~60 秒，等久一点，别让用户一遇到慢就报错。 */
+async function _fetch(path, o, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(path, { ...o, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function api(path, opt = {}) {
   const o = { headers: {}, ...opt };
   o.headers = { ...o.headers };
@@ -35,13 +46,21 @@ export async function api(path, opt = {}) {
   o.method = method;
   let res;
   try {
-    res = await fetch(path, o);
-  } catch {
-    // 断网。写请求先存本机，等有网了自动补传；读请求直接报错。
-    if (WRITE_METHODS.has(method) && enqueue(path, o)) {
-      throw new OfflineQueued('网络不通，已存到本机，联网后自动上传');
+    res = await _fetch(path, o, 45000);
+  } catch (e) {
+    // 超时 / 网络抖动：免费云实例可能在冷启动，读请求自动重试一次。
+    // 写请求绝不重试（避免重复提交），断网时走离线队列。
+    if (!o._retried && (e.name === 'AbortError' || !WRITE_METHODS.has(method))) {
+      o._retried = true;
+      try { res = await _fetch(path, o, 30000); } catch { /* 仍失败则按下方处理 */ }
     }
-    throw new Error('网络不通，请检查是否和服务器在同一 WiFi');
+    if (!res) {
+      // 断网。写请求先存本机，等有网了自动补传；读请求直接报错。
+      if (WRITE_METHODS.has(method) && enqueue(path, o)) {
+        throw new OfflineQueued('网络不通，已存到本机，联网后自动上传');
+      }
+      throw new Error('网络不稳定或服务器正在唤醒，请稍后重试');
+    }
   }
   if (res.status === 401) {
     store.token = ''; store.user = null;

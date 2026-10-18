@@ -31,10 +31,11 @@ async function listTab(root) {
     S.o ||= api('/api/fin/accounts'),
     api('/api/fin/categories'),
   ]);
-  const qs = new URLSearchParams({ start: monthStart(S.month), end: monthEnd(S.month), limit: 300, ...S.filter });
+  const qs = new URLSearchParams({ start: monthStart(S.month), end: monthEnd(S.month), limit: 300 });
+  Object.entries(S.filter).forEach(([k, v]) => { if (v !== '' && v != null) qs.set(k, v); });
   const d = await api('/api/fin/txns?' + qs);
 
-  const catName = (id) => cats.flatMap(c => c._group ? [] : [c]).find(c => c.id === +id)?.name || '';
+  const catName = (id) => cats.items.flatMap(c => c._group ? [] : [c]).find(c => c.id === +id)?.name || '';
 
   root.innerHTML = `
     <div class="segs" style="margin-bottom:10px">
@@ -119,7 +120,7 @@ export async function addTxn(done, preset = {}) {
     api('/api/fin/accounts'), api('/api/fin/categories'),
   ]);
   const dir = preset.direction || 'expense';
-  const flat = cats.filter(c => !c._group && c.kind === dir && c.active);
+  const flat = cats.items.filter(c => !c._group && c.kind === dir);
 
   formSheet({
     title: '记一笔',
@@ -180,7 +181,7 @@ function detailSheet(t, done) {
       if (ed) ed.onclick = async () => {
         close();
         const [acc, cats] = await Promise.all([api('/api/fin/accounts'), api('/api/fin/categories')]);
-        const flat = cats.filter(c => !c._group && c.kind === t.direction && c.active);
+        const flat = cats.items.filter(c => !c._group && c.kind === t.direction);
         formSheet({
           title: '编辑流水',
           fields: [

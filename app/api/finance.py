@@ -177,7 +177,7 @@ def disable_category(cid: int, _: dict = Depends(require("fin.write"))):
 
 # ---------------- 流水 ----------------
 @router.get("/txns")
-def list_txns(start: str = "", end: str = "", account_id: int = 0, category_id: int = 0,
+def list_txns(start: str = "", end: str = "", account_id: str = "0", category_id: str = "0",
               direction: str = "", q: str = "", limit: int = 100, offset: int = 0,
               _: dict = Depends(require("fin.read"))):
     where, args = [], []
@@ -185,10 +185,10 @@ def list_txns(start: str = "", end: str = "", account_id: int = 0, category_id: 
         where.append("t.biz_date >= ?"); args.append(start)
     if end:
         where.append("t.biz_date <= ?"); args.append(end)
-    if account_id:
-        where.append("t.account_id = ?"); args.append(account_id)
-    if category_id:
-        where.append("t.category_id = ?"); args.append(category_id)
+    if account_id and account_id != "0":
+        where.append("t.account_id = ?"); args.append(int(account_id))
+    if category_id and category_id != "0":
+        where.append("t.category_id = ?"); args.append(int(category_id))
     if direction:
         where.append("t.direction = ?"); args.append(direction)
     if q:

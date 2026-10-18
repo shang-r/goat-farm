@@ -1,5 +1,5 @@
 import {
-  api, esc, num, money, store, ok, err, sheet, formSheet, on, PUT,
+  api, esc, num, money, store, ok, err, sheet, formSheet, on, POST, PUT,
   today, sexBadge, statusBadge, params,
 } from '../core.js';
 
@@ -137,6 +137,7 @@ export async function editGoat(g, o, done) {
     fields,
     onSubmit: async (d) => {
       delete d._status;
+      d.buy_price = d.buy_price ?? 0;   // 后端要求数字，空填 0
       if (isNew) await POST('/api/goats', d);
       else await PUT(`/api/goats/${g.id}`, d);
       ok(isNew ? '已建档' : '已保存');
