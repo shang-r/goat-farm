@@ -12,13 +12,13 @@ export async function render(root) {
   const sub = { list: listTab, acct: acctTab, cat: catTab, trans: transTab }[S.tab] || listTab;
   root.innerHTML = `
     <div class="segs">
-      <button class="${S.tab === 'list' ? 'on' : ''}" data-t="list">流水</button>
-      <button class="${S.tab === 'acct' ? 'on' : ''}" data-t="acct">账户余额</button>
-      <button class="${S.tab === 'trans' ? 'on' : ''}" data-t="trans">收支分析</button>
-      <button class="${S.tab === 'cat' ? 'on' : ''}" data-t="cat">科目</button>
+      <button class="${S.tab === 'list' ? 'on' : ''}" data-ft="list">流水</button>
+      <button class="${S.tab === 'acct' ? 'on' : ''}" data-ft="acct">账户余额</button>
+      <button class="${S.tab === 'trans' ? 'on' : ''}" data-ft="trans">收支分析</button>
+      <button class="${S.tab === 'cat' ? 'on' : ''}" data-ft="cat">科目</button>
     </div>
     <div id="fbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
-  on(root, 'click', '[data-t]', (e, el) => { S.tab = el.dataset.t; render(root); });
+  on(root, 'click', '[data-ft]', (e, el) => { S.tab = el.dataset.ft; render(root); });
   await sub(root.querySelector('#fbody'));
 }
 
@@ -39,7 +39,7 @@ async function listTab(root) {
 
   root.innerHTML = `
     <div class="segs" style="margin-bottom:10px">
-      ${monthsAround(S.month).map(m => `<button class="${S.month === m ? 'on' : ''}" data-m="${m}">${m.slice(5)}月</button>`).join('')}
+      ${monthsAround(S.month).map(m => `<button class="${S.month === m ? 'on' : ''}" data-fm="${m}">${m.slice(5)}月</button>`).join('')}
     </div>
     <div class="card tight">
       <div class="kpis c3" style="margin-bottom:0">
@@ -54,17 +54,17 @@ async function listTab(root) {
     </div>
 
     <div class="chips">
-      <button class="chip ${!S.filter.account_id ? 'on' : ''}" data-clr="account_id">全部账户</button>
+      <button class="chip ${!S.filter.account_id ? 'on' : ''}" data-fc="account_id">全部账户</button>
       ${acc.items.filter(a => a.active).slice(0, 5).map(a =>
-    `<button class="chip ${String(S.filter.account_id) === String(a.id) ? 'on' : ''}" data-acc="${a.id}">${esc(a.name)}</button>`).join('')}
-      <button class="chip ${!S.filter.direction ? 'on' : ''}" data-clr="direction">全部方向</button>
-      <button class="chip ${S.filter.direction === 'income' ? 'on' : ''}" data-dir="income">只看收</button>
-      <button class="chip ${S.filter.direction === 'expense' ? 'on' : ''}" data-dir="expense">只看支</button>
+    `<button class="chip ${String(S.filter.account_id) === String(a.id) ? 'on' : ''}" data-fa="${a.id}">${esc(a.name)}</button>`).join('')}
+      <button class="chip ${!S.filter.direction ? 'on' : ''}" data-fc="direction">全部方向</button>
+      <button class="chip ${S.filter.direction === 'income' ? 'on' : ''}" data-fd="income">只看收</button>
+      <button class="chip ${S.filter.direction === 'expense' ? 'on' : ''}" data-fd="expense">只看支</button>
     </div>
 
     <div class="card">
       ${d.items.length ? `<ul class="list">${d.items.map(t => `
-        <li data-id="${t.id}">
+        <li data-fid="${t.id}">
           <div class="avatar" style="background:${t.direction === 'income' ? 'var(--danger-soft);color:var(--up)' : 'var(--brand-soft);color:var(--down)'}">
             ${t.direction === 'income' ? '收' : '支'}</div>
           <div class="li-main">
@@ -88,18 +88,18 @@ async function listTab(root) {
 
     ${store.can('fin.write') ? `<button class="fab" id="fab">+</button>` : ''}`;
 
-  on(root, 'click', '[data-m]', (e, el) => { S.month = el.dataset.m; listTab(root); });
-  on(root, 'click', '[data-acc]', (e, el) => { S.filter.account_id = el.dataset.acc; listTab(root); });
-  on(root, 'click', '[data-dir]', (e, el) => { S.filter.direction = el.dataset.dir; listTab(root); });
-  on(root, 'click', '[data-clr]', (e, el) => { S.filter[el.dataset.clr] = ''; listTab(root); });
+  on(root, 'click', '[data-fm]', (e, el) => { S.month = el.dataset.fm; listTab(root); });
+  on(root, 'click', '[data-fa]', (e, el) => { S.filter.account_id = el.dataset.fa; listTab(root); });
+  on(root, 'click', '[data-fd]', (e, el) => { S.filter.direction = el.dataset.fd; listTab(root); });
+  on(root, 'click', '[data-fc]', (e, el) => { S.filter[el.dataset.fc] = ''; listTab(root); });
   root.querySelector('#exp').onclick = () => {
     download(`/api/rep/export/txns?start=${monthStart(S.month)}&end=${monthEnd(S.month)}&token=${store.token}`);
     ok('正在导出 Excel');
   };
   const fab = root.querySelector('#fab');
   if (fab) fab.onclick = () => addTxn(() => listTab(root));
-  on(root, 'click', 'li[data-id]', (e, el) => {
-    const t = d.items.find(x => x.id === +el.dataset.id);
+  on(root, 'click', 'li[data-fid]', (e, el) => {
+    const t = d.items.find(x => x.id === +el.dataset.fid);
     detailSheet(t, () => listTab(root));
   });
 }
@@ -222,7 +222,7 @@ async function acctTab(root) {
     if (!list.length) return '';
     return `<div class="card">
         <div class="card-h"><span class="card-t">${kind === 'is_money' ? '💵 资金账户' : kind === 'receivable' ? '📥 应收账款' : '📤 应付账款'}</span>
-          ${store.can('fin.write') ? `<span class="card-more" data-add="${kind}">＋ 新增</span>` : ''}</div>
+          ${store.can('fin.write') ? `<span class="card-more" data-fadd="${kind}">＋ 新增</span>` : ''}</div>
         <ul class="list">${list.map(a => `
           <li>
             <div class="li-main">
@@ -243,7 +243,7 @@ async function acctTab(root) {
     <div class="notice mt12">余额公式：期初 + 收入 − 支出（应付账户相反）。
       <b>应收</b>记销售形成应收，回款时在应收账户记一笔「应收收回」（不计损益），同时在银行账户记一笔收入。</div>`;
 
-  on(root, 'click', '[data-add]', (e, el) => editAccount(null, el.dataset.add, () => acctTab(root)));
+  on(root, 'click', '[data-fadd]', (e, el) => editAccount(null, el.dataset.fadd, () => acctTab(root)));
   root.querySelector('#tr')?.addEventListener('click', () => transferSheet(() => acctTab(root)));
   root.querySelector('#op')?.addEventListener('click', () => openingSheet(d, () => acctTab(root)));
 }
@@ -336,7 +336,7 @@ async function transTab(root) {
   root.innerHTML = `
     <div class="segs" style="margin-bottom:10px">
       ${[new Date().getFullYear(), new Date().getFullYear() - 1].map(y =>
-    `<button class="${S.year === y ? 'on' : ''}" data-y="${y}">${y} 年</button>`).join('')}
+    `<button class="${S.year === y ? 'on' : ''}" data-fy="${y}">${y} 年</button>`).join('')}
     </div>
     <div class="card">
       <div class="card-h"><span class="card-t">逐月收支柱状图</span></div>
@@ -360,7 +360,7 @@ async function transTab(root) {
           <td class="${x.profit >= 0 ? 'pos' : 'neg'}">${x.profit ? num(x.profit, 0) : '-'}</td></tr>`).join('')}
         </tbody></table></div>
     </div>`;
-  on(root, 'click', '[data-y]', (e, el) => { S.year = +el.dataset.y; transTab(root); });
+  on(root, 'click', '[data-fy]', (e, el) => { S.year = +el.dataset.fy; transTab(root); });
 }
 
 // ---------- 科目管理 ----------
