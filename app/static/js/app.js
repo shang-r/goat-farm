@@ -178,7 +178,13 @@ function openSearch() {
       }
       res.addEventListener('click', ev => {
         const g = ev.target.closest('[data-goat]');
-        if (g) { b.closest('.mask').remove(); go('/goat/' + g.dataset.goat); return; }
+        if (g) {
+          const mask = b.closest('.mask');
+          if (mask) mask.remove();
+          document.body.style.overflow = '';
+          location.hash = '#/goat/' + g.dataset.goat;
+          return;
+        }
         const c = ev.target.closest('[data-cat]');
         if (c) { loadList(`${c.textContent.trim()} · 流水`, `/api/fin/txns?category_id=${c.dataset.cat}&limit=100`); return; }
         const a = ev.target.closest('[data-acc]');
@@ -188,7 +194,8 @@ function openSearch() {
         const res = b.querySelector('#sres');
         const q = b.querySelector('#sq');
         res.innerHTML = '<div class="card"><div class="skel" style="height:17px"></div></div>';
-        const d = await api(url);
+        let d;
+        try { d = await api(url); } catch { res.innerHTML = '<div class="empty"><div class="s">加载失败，请重试</div></div>'; return; }
         res.innerHTML = `
           <div class="card-t" style="margin:6px 0">${esc(title)}
             <small class="muted">收入 ${money(d.income || 0)} / 支出 ${money(d.expense || 0)} / ${d.items.length} 笔</small></div>
