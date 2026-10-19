@@ -151,7 +151,7 @@ def create_category(body: dict, _: dict = Depends(require("fin.write"))):
     if db.row("SELECT 1 FROM categories WHERE name=? AND kind=?", (name, kind)):
         raise HTTPException(400, "该科目已存在")
     cid = db.insert(
-        "INSERT INTO categories (name,kind,group_name,affect,sort) VALUES (?,?,?,?,?)",
+        "INSERT INTO categories (name,kind,group_name,affect,sort,active) VALUES (?,?,?,?,?,1)",
         (name, kind, body.get("group_name") or "其他",
          int(body.get("affect", 1)), int(body.get("sort", 90))))
     return {"id": cid}
