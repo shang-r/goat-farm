@@ -237,6 +237,7 @@ async function sheetTab(root) {
 // ---------- 科目余额表 ----------
 async function ledgerTab(root) {
   const d = await api(`/api/rep/category-ledger?preset=${p()}`);
+  S.ds = d.start; S.de = d.end;
   const groups = {};
   d.items.forEach(i => (groups[i.group_name] ||= []).push(i));
 
@@ -253,10 +254,11 @@ async function ledgerTab(root) {
     ${d.items.length ? Object.entries(groups).map(([g, items]) => `
       <div class="card">
         <div class="card-h"><span class="card-t">${esc(g)}</span>
-          <span class="small muted">${items.length} 个科目</span></div>
+          <span class="small muted">${items.length} 个科目 · 点击科目查看明细</span></div>
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr><th>科目</th><th>收入</th><th>支出</th><th>笔数</th></tr></thead>
-          <tbody>${items.map(i => `<tr><td>${esc(i.name)}</td>
+          <tbody>${items.map(i => `<tr data-cid="${i.id}" style="cursor:pointer">
+            <td>${esc(i.name)}</td>
             <td class="pos">${i.income ? num(i.income, 0) : '-'}</td>
             <td class="neg">${i.expense ? num(i.expense, 0) : '-'}</td>
             <td class="muted">${i.count}</td></tr>`).join('')}
@@ -267,8 +269,31 @@ async function ledgerTab(root) {
           </tbody></table></div>
       </div>`).join('') : emptyBox('该期间没有发生额')}
 
+    <div id="catdet"></div>
     ${exportBar([['导出利润表', `/api/rep/export/profit?preset=${p()}&token=${store.token}`]])}`;
   bind(root);
+  on(root, 'click', 'tr[data-cid]', async (e, el) => {
+    const box = root.querySelector('#catdet');
+    if (!box) return;
+    const cid = el.dataset.cid;
+    const name = el.querySelector('td').textContent.trim();
+    box.innerHTML = '<div class="card"><div class="skel" style="height:17px"></div></div>';
+    const d = await api(`/api/fin/txns?category_id=${cid}&start=${S.ds}&end=${S.de}&limit=500`);
+    box.innerHTML = `
+      <div class="card">
+        <div class="card-h"><span class="card-t">${esc(name)} · 明细（${S.ds} ~ ${S.de}）</span>
+          <span class="small muted">收入 ${num(d.income, 0)} / 支出 ${num(d.expense, 0)} / 共 ${d.items.length} 笔</span></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>日期</th><th>账户</th><th>金额</th><th>备注</th></tr></thead>
+          <tbody>${d.items.map(t => `<tr>
+            <td>${esc(t.biz_date)}</td>
+            <td class="muted">${esc(t.account_name || '')}</td>
+            <td class="${t.direction === 'income' ? 'pos' : 'neg'}">${t.direction === 'income' ? '+' : '-'}${num(t.amount, 0)}</td>
+            <td class="muted">${esc(t.note || '')}</td></tr>`).join('')}
+            ${d.items.length ? '' : '<tr><td colspan=4 class="muted">该期间无明细</td></tr>'}
+          </tbody></table></div>
+      </div>`;
+  });
 }
 
 // ---------- 经营分析 ----------
