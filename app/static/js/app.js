@@ -1,5 +1,5 @@
 import {
-  store, api, POST, ok, err, esc, params, confirmLogout, sheet,
+  store, api, POST, ok, err, esc, params, confirmLogout, sheet, money,
   syncNetBadge, flushQueue, clearSwCache, OfflineQueued, $, $$,
 } from './core.js';
 
@@ -178,8 +178,29 @@ function openSearch() {
       }
       res.addEventListener('click', ev => {
         const g = ev.target.closest('[data-goat]');
-        if (g) { b.closest('.mask').remove(); go('/goat/' + g.dataset.goat); }
+        if (g) { b.closest('.mask').remove(); go('/goat/' + g.dataset.goat); return; }
+        const c = ev.target.closest('[data-cat]');
+        if (c) { loadList(`${c.textContent.trim()} · 流水`, `/api/fin/txns?category_id=${c.dataset.cat}&limit=100`); return; }
+        const a = ev.target.closest('[data-acc]');
+        if (a) { loadList(`${a.textContent.trim()} · 流水`, `/api/fin/txns?account_id=${a.dataset.acc}&limit=100`); return; }
       });
+      async function loadList(title, url) {
+        const res = b.querySelector('#sres');
+        const q = b.querySelector('#sq');
+        res.innerHTML = '<div class="card"><div class="skel" style="height:17px"></div></div>';
+        const d = await api(url);
+        res.innerHTML = `
+          <div class="card-t" style="margin:6px 0">${esc(title)}
+            <small class="muted">收入 ${money(d.income || 0)} / 支出 ${money(d.expense || 0)} / ${d.items.length} 笔</small></div>
+          <ul class="list">${d.items.map(t => `<li>
+            <div class="avatar" style="background:${t.direction === 'income' ? 'var(--danger-soft);color:var(--up)' : 'var(--brand-soft);color:var(--down)'}">${t.direction === 'income' ? '收' : '支'}</div>
+            <div class="li-main"><div class="li-t">${esc(t.category_name)}</div>
+            <div class="li-s">${esc(t.biz_date)} · ${esc(t.account_name)}${t.note ? ' · ' + esc(t.note.slice(0, 12)) : ''}</div></div>
+            <span class="li-v ${t.direction === 'income' ? 'in' : 'out'}">${t.direction === 'income' ? '+' : '−'}${money(t.amount)}</span>
+          </li>`).join('') || '<div class="empty"><div class="s">该范围没有流水</div></div>'}</ul>
+          <button class="btn grow mt12" id="bk">← 返回搜索</button>`;
+        res.querySelector('#bk').onclick = () => { q.value = ''; res.innerHTML = ''; q.focus(); };
+      }
       setTimeout(() => q.focus(), 150);
     },
   });
@@ -194,8 +215,11 @@ function renderSearch(d) {
       <div class="li-s">${esc(g.age_text)} · ${esc(g.barn || '未分栏')}</div></div>
       <span class="li-arrow">›</span></li>`).join('')}</ul>`);
   if (d.categories?.length) parts.push(`<div class="card-t mt12" style="margin-bottom:6px">科目</div>
-    <ul class="list">${d.categories.map(c => `<li><div class="li-main"><div class="li-t">${esc(c.name)}</div>
-      <div class="li-s">${c.kind === 'income' ? '收入' : '支出'}</div></div></li>`).join('')}</ul>`);
+    <ul class="list">${d.categories.map(c => `<li data-cat="${c.id}" style="cursor:pointer"><div class="li-main"><div class="li-t">${esc(c.name)}</div>
+      <div class="li-s">${c.kind === 'income' ? '收入' : '支出'} · 点开看流水</div></div><span class="li-arrow">›</span></li>`).join('')}</ul>`);
+  if (d.accounts?.length) parts.push(`<div class="card-t mt12" style="margin-bottom:6px">账户</div>
+    <ul class="list">${d.accounts.map(a => `<li data-acc="${a.id}" style="cursor:pointer"><div class="li-main"><div class="li-t">${esc(a.name)}</div>
+      <div class="li-s">点开看流水</div></div><span class="li-arrow">›</span></li>`).join('')}</ul>`);
   return parts.length ? parts.join('') : '<div class="empty"><div class="s">没有匹配的结果</div></div>';
 }
 
