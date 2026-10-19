@@ -154,21 +154,24 @@ def insert(sql: str, params: tuple | dict = ()) -> int:
 
 
 class tx:
-    """事务上下文：立即开启，异常回滚。"""
+    """事务上下文：立即开启，异常回滚。
+
+    PG 模式走 autocommit（get_conn 已设 autocommit=True），
+    BEGIN/COMMIT/ROLLBACK 均不需要；SQLite 保持原事务语义。
+    """
 
     def __enter__(self):
         self.conn = get_conn()
-        if IS_PG:
-            self.conn.execute("BEGIN")
-        else:
+        if not IS_PG:
             self.conn.execute("BEGIN IMMEDIATE")
         return self.conn
 
     def __exit__(self, exc_type, exc, tb):
-        if exc_type is None:
-            self.conn.execute("COMMIT")
-        else:
-            self.conn.execute("ROLLBACK")
+        if not IS_PG:
+            if exc_type is None:
+                self.conn.execute("COMMIT")
+            else:
+                self.conn.execute("ROLLBACK")
         return False
 
 
@@ -176,10 +179,12 @@ def init_db() -> None:
     if IS_PG:
         conn = get_conn()
         schema = _translate_schema(SCHEMA_PATH.read_text(encoding="utf-8"))
+        cur = conn.cursor()
         for stmt in schema.split(";"):
             s = stmt.strip()
             if s:
-                conn.execute(s)
+                cur.execute(s)
+        cur.close()
     else:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         conn = get_conn()
