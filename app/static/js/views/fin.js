@@ -6,10 +6,10 @@ import {
 
 const money_ = (n, dp = 2) => '¥' + money(n, dp);
 
-const S = { tab: 'list', month: '', year: '', o: null, filter: { account_id: '', category_id: '', direction: '' } };
+const S = { tab: 'list', month: '', year: '', acctMonth: '', o: null, filter: { account_id: '', category_id: '', direction: '' } };
 
 export async function render(root) {
-  const sub = { list: listTab, acct: acctTab, cat: catTab, trans: transTab }[S.tab] || listTab;
+  const sub = { list: listTab, acct: r => acctTab(r, S.acctMonth), cat: catTab, trans: transTab }[S.tab] || listTab;
   root.innerHTML = `
     <div class="segs">
       <button class="${S.tab === 'list' ? 'on' : ''}" data-ft="list">流水</button>
@@ -206,11 +206,19 @@ function detailSheet(t, done) {
 }
 
 // ---------- 账户余额 ----------
-async function acctTab(root) {
-  const d = await api('/api/fin/balances');
+async function acctTab(root, m) {
+  m = m || new Date().toISOString().slice(0, 7);
+  const [y, mo] = m.split('-').map(Number);
+  const last = String(new Date(y, mo, 0).getDate()).padStart(2, '0');
+  const until = `${m}-${last}`;
+  const d = await api(`/api/fin/balances?until=${until}`);
   root.innerHTML = `
+    <div class="segs" style="margin-bottom:10px">
+      <input type="month" id="bm" value="${m}" max="${new Date().toISOString().slice(0, 7)}"
+        style="width:145px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:14px">
+    </div>
     <div class="card">
-      <div class="card-t mb0">净资产头寸</div>
+      <div class="card-t mb0">净资产头寸 <span class="small muted">截至 ${m} 月末</span></div>
       <div class="flex mt12" style="align-items:baseline;gap:6px">
         <span class="num" style="font-size:30px;font-weight:700">¥ ${money(d.money_total + d.receivable - d.payable)}</span>
       </div>
@@ -243,9 +251,13 @@ async function acctTab(root) {
     <div class="notice mt12">余额公式：期初 + 收入 − 支出（应付账户相反）。
       <b>应收</b>记销售形成应收，回款时在应收账户记一笔「应收收回」（不计损益），同时在银行账户记一笔收入。</div>`;
 
-  on(root, 'click', '[data-fadd]', (e, el) => editAccount(null, el.dataset.fadd, () => acctTab(root)));
-  root.querySelector('#tr')?.addEventListener('click', () => transferSheet(() => acctTab(root)));
-  root.querySelector('#op')?.addEventListener('click', () => openingSheet(d, () => acctTab(root)));
+  on(root, 'click', '[data-fadd]', (e, el) => editAccount(null, el.dataset.fadd, () => acctTab(root, m)));
+  root.querySelector('#tr')?.addEventListener('click', () => transferSheet(() => acctTab(root, m)));
+  root.querySelector('#op')?.addEventListener('click', () => openingSheet(d, () => acctTab(root, m)));
+  root.querySelector('#bm')?.addEventListener('change', (e) => {
+    S.acctMonth = e.target.value;
+    if (S.acctMonth) acctTab(root, S.acctMonth);
+  });
 }
 
 function editAccount(a, kind, done) {
