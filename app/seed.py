@@ -83,7 +83,7 @@ def seed() -> dict:
     for name, kind, grp, affect, sort in CATEGORIES:
         if not db.row("SELECT 1 FROM categories WHERE name=? AND kind=?", (name, kind)):
             db.execute(
-                "INSERT INTO categories (name, kind, group_name, affect, sort) VALUES (?,?,?,?,?)",
+                "INSERT INTO categories (name, kind, group_name, affect, sort, active) VALUES (?,?,?,?,?,1)",
                 (name, kind, grp, affect, sort),
             )
             created["categories"] += 1
