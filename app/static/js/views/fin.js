@@ -60,6 +60,11 @@ async function listTab(root) {
       <button class="chip ${!S.filter.direction ? 'on' : ''}" data-fc="direction">全部方向</button>
       <button class="chip ${S.filter.direction === 'income' ? 'on' : ''}" data-fd="income">只看收</button>
       <button class="chip ${S.filter.direction === 'expense' ? 'on' : ''}" data-fd="expense">只看支</button>
+      <select id="fcat" style="height:34px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:13px;color:var(--fg)">
+        <option value="">全部科目</option>
+        ${cats.items.flatMap(c => c._group ? [] : [c]).map(c =>
+        `<option value="${c.id}" ${String(S.filter.category_id) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+      </select>
     </div>
 
     <div class="card">
@@ -92,6 +97,8 @@ async function listTab(root) {
   on(root, 'click', '[data-fa]', (e, el) => { S.filter.account_id = el.dataset.fa; listTab(root); });
   on(root, 'click', '[data-fd]', (e, el) => { S.filter.direction = el.dataset.fd; listTab(root); });
   on(root, 'click', '[data-fc]', (e, el) => { S.filter[el.dataset.fc] = ''; listTab(root); });
+  const fcat = root.querySelector('#fcat');
+  if (fcat) fcat.onchange = (e) => { S.filter.category_id = e.target.value; listTab(root); };
   root.querySelector('#exp').onclick = () => {
     download(`/api/rep/export/txns?start=${monthStart(S.month)}&end=${monthEnd(S.month)}&token=${store.token}`);
     ok('正在导出 Excel');
