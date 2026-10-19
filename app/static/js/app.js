@@ -54,7 +54,12 @@ async function route() {
 
   $('#pageTitle').textContent = title;
   $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === key));
-  const vEl = $('#view');
+  // 关键修复：每次切换视图前重建 #view 元素（cloneNode 复制 id 与 class，不复制子节点与监听）。
+  // 上一视图模块绑定在 #view 上的全部事件委托（[data-t]/[data-id] 等）会随旧元素一起销毁，
+  // 杜绝「点击当前页内部选项，却同时触发其他模块的渲染函数，导致渲染串页/误跳转」的顽固问题。
+  const _old = $('#view');
+  const vEl = _old.cloneNode(false);
+  _old.replaceWith(vEl);
   vEl.innerHTML = '<div class="card"><div class="skel" style="height:17px;margin-bottom:11px"></div>'
     + '<div class="skel" style="height:17px"></div></div>';
   window.scrollTo(0, 0);
