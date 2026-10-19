@@ -540,7 +540,7 @@ export function lineChart(data, { h = 170, keys = [{ k: 'total', c: '#1f7a52', n
     ${grid}${ylab}${xlab}${paths}</svg>${keys.length > 1 ? `<div class="glegend">${legend}</div>` : ''}`;
 }
 
-export function barChart(data, { h = 170, series = [{ k: 'v', c: '#1f7a52', name: '值' }], fmt = num, label = k => k } = {}) {
+export function barChart(data, { h = 170, series = [{ k: 'v', c: '#1f7a52', name: '值' }], fmt = num, label = d => d.label ?? d } = {}) {
   if (!data?.length) return emptyBox('暂无数据');
   const W = 320, H = h, PL = 38, PR = 8, PT = 10, PB = 18;
   const totals = data.map(d => series.reduce((s, k) => s + (+d[k.k] || 0), 0));
