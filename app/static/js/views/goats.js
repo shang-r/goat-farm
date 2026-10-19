@@ -21,12 +21,12 @@ export async function render(root) {
     </div>
     <div class="chips">
       ${[['alive', '在场'], ['sold', '已售'], ['dead', '死亡'], ['cull', '淘汰'], ['loan', '外借'], ['', '全部']]
-      .map(([v, t]) => `<button class="chip ${S.status === v ? 'on' : ''}" data-st="${v}">${t}</button>`).join('')}
+      .map(([v, t]) => `<button class="chip ${S.status === v ? 'on' : ''}" data-gs="${v}">${t}</button>`).join('')}
     </div>
     ${S.sex || S.grp || S.barn ? `<div class="chips">
-      ${S.sex ? `<button class="chip on" data-clear="sex">性别:${S.sex === 'f' ? '母' : '公'} ✕</button>` : ''}
-      ${S.grp ? `<button class="chip on" data-clear="grp">${esc(o.groups.find(g => g.code === S.grp)?.name || S.grp)} ✕</button>` : ''}
-      ${S.barn ? `<button class="chip on" data-clear="barn">${esc(S.barn)} ✕</button>` : ''}
+      ${S.sex ? `<button class="chip on" data-gc="sex">性别:${S.sex === 'f' ? '母' : '公'} ✕</button>` : ''}
+      ${S.grp ? `<button class="chip on" data-gc="grp">${esc(o.groups.find(g => g.code === S.grp)?.name || S.grp)} ✕</button>` : ''}
+      ${S.barn ? `<button class="chip on" data-gc="barn">${esc(S.barn)} ✕</button>` : ''}
     </div>` : ''}
 
     <div class="card tight"><div class="flex between small muted">
@@ -40,9 +40,9 @@ export async function render(root) {
     </div>
 
     ${d.pages > 1 ? `<div class="pager">
-      <button class="btn btn-sm" data-pg="${d.page - 1}" ${d.page <= 1 ? 'disabled' : ''}>上一页</button>
+      <button class="btn btn-sm" data-gp="${d.page - 1}" ${d.page <= 1 ? 'disabled' : ''}>上一页</button>
       <span>${d.page} / ${d.pages}</span>
-      <button class="btn btn-sm" data-pg="${d.page + 1}" ${d.page >= d.pages ? 'disabled' : ''}>下一页</button>
+      <button class="btn btn-sm" data-gp="${d.page + 1}" ${d.page >= d.pages ? 'disabled' : ''}>下一页</button>
     </div>` : ''}
 
     ${store.can('goat.write') ? `<button class="fab" id="fab">+</button>` : ''}`;
@@ -51,16 +51,16 @@ export async function render(root) {
   let t;
   q.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.q = q.value.trim(); S.page = 1; render(root); }, 300); };
   root.querySelector('#fbtn').onclick = () => filterSheet(o, S);
-  on(root, 'click', '[data-st]', (e, el) => { S.status = el.dataset.st; S.page = 1; render(root); });
-  on(root, 'click', '[data-clear]', (e, el) => { S[el.dataset.clear] = ''; render(root); });
-  on(root, 'click', '[data-pg]', (e, el) => { S.page = +el.dataset.pg; render(root); });
-  on(root, 'click', '[data-id]', (e, el) => location.hash = '#/goat/' + el.dataset.id);
+  on(root, 'click', '[data-gs]', (e, el) => { S.status = el.dataset.gs; S.page = 1; render(root); });
+  on(root, 'click', '[data-gc]', (e, el) => { S[el.dataset.gc] = ''; render(root); });
+  on(root, 'click', '[data-gp]', (e, el) => { S.page = +el.dataset.gp; render(root); });
+  on(root, 'click', '[data-gid]', (e, el) => location.hash = '#/goat/' + el.dataset.gid);
   const fab = root.querySelector('#fab');
   if (fab) fab.onclick = () => editGoat(null, o, () => render(root));
 }
 
 const goatRow = (g) => `
-  <li data-id="${g.id}">
+  <li data-gid="${g.id}">
     <div class="avatar ${g.sex}">${esc((g.name || g.tag_no).slice(-2))}</div>
     <div class="li-main">
       <div class="li-t">${esc(g.tag_no)}${g.name && g.name !== g.tag_no ? `<span class="muted small" style="font-weight:400">${esc(g.name)}</span>` : ''}
