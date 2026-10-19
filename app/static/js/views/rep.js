@@ -269,30 +269,31 @@ async function ledgerTab(root) {
           </tbody></table></div>
       </div>`).join('') : emptyBox('该期间没有发生额')}
 
-    <div id="catdet"></div>
     ${exportBar([['导出利润表', `/api/rep/export/profit?preset=${p()}&token=${store.token}`]])}`;
   bind(root);
   on(root, 'click', 'tr[data-cid]', async (e, el) => {
-    const box = root.querySelector('#catdet');
-    if (!box) return;
+    const prev = el.nextElementSibling;
+    if (prev && prev.classList.contains('cat-det')) { prev.remove(); return; }
     const cid = el.dataset.cid;
     const name = el.querySelector('td').textContent.trim();
-    box.innerHTML = '<div class="card"><div class="skel" style="height:17px"></div></div>';
+    const row = document.createElement('tr');
+    row.className = 'cat-det';
+    row.innerHTML = `<td colspan="4"><div class="card" style="margin:6px 0 10px;border-left:3px solid var(--brand)"><div class="skel" style="height:17px"></div></div></td>`;
+    el.after(row);
     const d = await api(`/api/fin/txns?category_id=${cid}&start=${S.ds}&end=${S.de}&limit=500`);
-    box.innerHTML = `
-      <div class="card">
-        <div class="card-h"><span class="card-t">${esc(name)} · 明细（${S.ds} ~ ${S.de}）</span>
-          <span class="small muted">收入 ${num(d.income, 0)} / 支出 ${num(d.expense, 0)} / 共 ${d.items.length} 笔</span></div>
-        <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>日期</th><th>账户</th><th>金额</th><th>备注</th></tr></thead>
-          <tbody>${d.items.map(t => `<tr>
-            <td>${esc(t.biz_date)}</td>
-            <td class="muted">${esc(t.account_name || '')}</td>
-            <td class="${t.direction === 'income' ? 'pos' : 'neg'}">${t.direction === 'income' ? '+' : '-'}${num(t.amount, 0)}</td>
-            <td class="muted">${esc(t.note || '')}</td></tr>`).join('')}
-            ${d.items.length ? '' : '<tr><td colspan=4 class="muted">该期间无明细</td></tr>'}
-          </tbody></table></div>
-      </div>`;
+    row.innerHTML = `<td colspan="4"><div class="card" style="margin:6px 0 10px;border-left:3px solid var(--brand)">
+      <div class="card-h"><span class="card-t">${esc(name)} 明细（${S.ds} ~ ${S.de}）</span>
+        <span class="small muted">收入 ${num(d.income, 0)} / 支出 ${num(d.expense, 0)} / ${d.items.length} 笔 · 再点收起</span></div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>日期</th><th>账户</th><th>金额</th><th>备注</th></tr></thead>
+        <tbody>${d.items.map(t => `<tr>
+          <td>${esc(t.biz_date)}</td>
+          <td class="muted">${esc(t.account_name || '')}</td>
+          <td class="${t.direction === 'income' ? 'pos' : 'neg'}">${t.direction === 'income' ? '+' : '-'}${num(t.amount, 0)}</td>
+          <td class="muted">${esc(t.note || '')}</td></tr>`).join('')}
+          ${d.items.length ? '' : '<tr><td colspan=4 class="muted">该期间无明细</td></tr>'}
+        </tbody></table></div>
+    </div></td>`;
   });
 }
 
