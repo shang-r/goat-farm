@@ -397,7 +397,7 @@ def herd_trend(days: int = 60, _: dict = Depends(require("goat.read"))):
         d += timedelta(days=1)
 
     male_ratio = db.scalar(
-        "SELECT AVG(sex='m') FROM goat WHERE status='alive'", (), 0) or 0
+        "SELECT AVG(CASE WHEN sex='m' THEN 1 ELSE 0 END) FROM goat WHERE status='alive'", (), 0) or 0
     return {
         "series": series,
         "change_30d": (series[-1]["total"] - series[0]["total"]) if series else 0,
