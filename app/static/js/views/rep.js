@@ -14,14 +14,14 @@ export async function render(root) {
   const sub = { profit: profitTab, cash: cashTab, sheet: sheetTab, ledger: ledgerTab, ops: opsTab }[S.tab] || profitTab;
   root.innerHTML = `
     <div class="segs">
-      <button class="${S.tab === 'profit' ? 'on' : ''}" data-t="profit">利润表</button>
-      <button class="${S.tab === 'cash' ? 'on' : ''}" data-t="cash">现金流</button>
-      <button class="${S.tab === 'sheet' ? 'on' : ''}" data-t="sheet">资产负债</button>
-      <button class="${S.tab === 'ledger' ? 'on' : ''}" data-t="ledger">科目汇总</button>
-      <button class="${S.tab === 'ops' ? 'on' : ''}" data-t="ops">经营分析</button>
+      <button class="${S.tab === 'profit' ? 'on' : ''}" data-rt="profit">利润表</button>
+      <button class="${S.tab === 'cash' ? 'on' : ''}" data-rt="cash">现金流</button>
+      <button class="${S.tab === 'sheet' ? 'on' : ''}" data-rt="sheet">资产负债</button>
+      <button class="${S.tab === 'ledger' ? 'on' : ''}" data-rt="ledger">科目汇总</button>
+      <button class="${S.tab === 'ops' ? 'on' : ''}" data-rt="ops">经营分析</button>
     </div>
     <div id="rbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
-  on(root, 'click', '[data-t]', (e, el) => { S.tab = el.dataset.t; render(root); });
+  on(root, 'click', '[data-rt]', (e, el) => { S.tab = el.dataset.rt; render(root); });
   await sub(root.querySelector('#rbody'));
 }
 
@@ -30,13 +30,13 @@ const p = () => (PRESET_SQL[S.preset] || S.preset);
 
 function periodBar(extra = '') {
   return `<div class="segs" style="margin-bottom:10px">
-    ${PRESETS.map(([k, t]) => `<button class="${S.preset === k ? 'on' : ''}" data-p="${k}">${t}</button>`).join('')}
+    ${PRESETS.map(([k, t]) => `<button class="${S.preset === k ? 'on' : ''}" data-rp="${k}">${t}</button>`).join('')}
   </div>${extra}`;
 }
 
 function exportBar(urls) {
   return `<div class="flex gap8 mt12" style="gap:8px">
-    ${urls.map(([label, u]) => `<button class="btn grow" data-exp="${u}" style="flex:1">⬇ ${esc(label)}</button>`).join('')}
+    ${urls.map(([label, u]) => `<button class="btn grow" data-re="${u}" style="flex:1">⬇ ${esc(label)}</button>`).join('')}
   </div>`;
 }
 
@@ -327,12 +327,12 @@ async function opsTab(root) {
 
 // ---------- 公共绑定 ----------
 function bind(root) {
-  on(root, 'click', '[data-p]', (e, el) => {
-    S.preset = el.dataset.p;
+  on(root, 'click', '[data-rp]', (e, el) => {
+    S.preset = el.dataset.rp;
     ({ profit: profitTab, cash: cashTab, sheet: sheetTab, ledger: ledgerTab, ops: opsTab })[S.tab](ref());
   });
-  on(root, 'click', '[data-exp]', (e, el) => {
-    download(el.dataset.exp);
+  on(root, 'click', '[data-re]', (e, el) => {
+    download(el.dataset.re);
     ok('正在导出 Excel');
   });
 }
