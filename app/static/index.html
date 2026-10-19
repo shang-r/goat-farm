@@ -80,7 +80,10 @@
 <script>
 if ('serviceWorker' in navigator) {
   addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    // updateViaCache:'none' 绕过浏览器对 sw.js 的 HTTP 缓存，配合 update() 让新版立即接管并清理旧缓存
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(function (reg) { if (reg) reg.update(); })
+      .catch(function () {});
   });
 }
 </script>
