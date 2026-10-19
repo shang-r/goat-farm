@@ -120,7 +120,7 @@ export async function addTxn(done, preset = {}) {
     api('/api/fin/accounts'), api('/api/fin/categories'),
   ]);
   const dir = preset.direction || 'expense';
-  const flat = cats.items.filter(c => !c._group && c.kind === dir);
+  const flat = cats.items.filter(c => !c._group);
 
   formSheet({
     title: '记一笔',
@@ -181,7 +181,7 @@ function detailSheet(t, done) {
       if (ed) ed.onclick = async () => {
         close();
         const [acc, cats] = await Promise.all([api('/api/fin/accounts'), api('/api/fin/categories')]);
-        const flat = cats.items.filter(c => !c._group && c.kind === t.direction);
+        const flat = cats.items.filter(c => !c._group);
         formSheet({
           title: '编辑流水',
           fields: [
