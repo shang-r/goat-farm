@@ -153,7 +153,7 @@ document.addEventListener('click', e => {
   const act = a.dataset.action;
   if (act === 'search') openSearch();
   if (act === 'go-me') go('/me');
-});
+}, true);
 
 function openSearch() {
   sheet({
