@@ -88,8 +88,8 @@ def _auto_sale_txn(goat_id: int, biz_date: str, amount: float, note: str, user_i
     """卖羊收入自动生成一笔台账（挂银行账户），避免手工漏记；同一只羊只生成一次。"""
     if db.row("SELECT 1 FROM txn WHERE link_type='sale' AND link_id=?", (goat_id,)):
         return None
-    acc = db.row("SELECT id FROM accounts WHERE kind='bank' AND active=1 LIMIT 1") \
-        or db.row("SELECT id FROM accounts WHERE kind IN ('cash','wechat','alipay') AND active=1 LIMIT 1")
+    acc = db.row("SELECT id FROM accounts WHERE kind IN ('wechat','alipay') AND active=1 LIMIT 1") \
+        or db.row("SELECT id FROM accounts WHERE kind IN ('bank','cash') AND active=1 LIMIT 1")
     cat = db.row("SELECT id FROM categories WHERE name='卖羊收入' AND (active=1 OR active IS NULL)")
     if not acc or not cat:
         return None
