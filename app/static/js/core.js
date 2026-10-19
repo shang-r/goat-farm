@@ -259,8 +259,13 @@ export function sheet({ title, body, footer = '', onMount, size }) {
   };
   sheetStack.push(close);
   document.body.style.overflow = 'hidden';
+  const born = Date.now();
   mask.addEventListener('click', e => {
-    if (e.target === mask || e.target.closest('[data-x]')) close();
+    if (e.target === mask || e.target.closest('[data-x]')) {
+      // 移动端合成点击穿透：弹层刚弹出 400ms 内的空白点击不关闭
+      if (e.target === mask && Date.now() - born < 400) return;
+      close();
+    }
   });
   if (onMount) onMount($('.sheet-b', mask), close, $('.sheet-f', mask));
   return { close, el: mask };
