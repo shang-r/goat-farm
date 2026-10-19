@@ -68,8 +68,10 @@ def _secret() -> bytes:
     val = db.scalar("SELECT value FROM setting WHERE key='auth_secret'")
     if not val:
         val = secrets.token_hex(32)
+        # SQLite / PostgreSQL 通用的 UPSERT 语法
         db.execute(
-            "INSERT OR REPLACE INTO setting (key, value) VALUES ('auth_secret', ?)", (val,)
+            "INSERT INTO setting (key, value) VALUES ('auth_secret', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (val,)
         )
     return val.encode()
 
