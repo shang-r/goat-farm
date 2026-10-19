@@ -178,23 +178,25 @@ def category_ledger(start: str = "", end: str = "", preset: str = "",
                     _: dict = Depends(require("rep.read"))):
     s, e = _range(start, end, preset)
     rs = db.rows(
-        "SELECT c.id, c.name, c.kind, c.group_name,"
+        "SELECT c.id, c.name, c.kind, c.group_name, c.affect,"
         " SUM(CASE WHEN t.direction='income' THEN t.amount ELSE 0 END) AS inc,"
         " SUM(CASE WHEN t.direction='expense' THEN t.amount ELSE 0 END) AS exp,"
         " COUNT(*) AS cnt FROM categories c LEFT JOIN txn t"
-        " ON t.category_id=c.id AND t.biz_date BETWEEN ? AND ? AND t.affect=1"
-        " WHERE c.affect=1 GROUP BY c.id ORDER BY c.kind DESC, c.sort", (s, e))
+        " ON t.category_id=c.id AND t.biz_date BETWEEN ? AND ?"
+        " WHERE (c.active=1 OR c.active IS NULL) GROUP BY c.id ORDER BY c.kind DESC, c.sort", (s, e))
     items, ti, te = [], 0.0, 0.0
     for r in rs:
         if not r["cnt"]:
             continue
         inc, exp = round(r["inc"] or 0, 2), round(r["exp"] or 0, 2)
-        if r["kind"] == "income":
-            ti += inc
-        else:
-            te += exp
+        if r["affect"]:
+            if r["kind"] == "income":
+                ti += inc
+            else:
+                te += exp
         items.append({"id": r["id"], "name": r["name"], "kind": r["kind"],
-                      "group_name": r["group_name"], "income": inc, "expense": exp,
+                      "group_name": r["group_name"], "affect": r["affect"],
+                      "income": inc, "expense": exp,
                       "count": r["cnt"]})
     return {"start": s, "end": e, "items": items,
             "total_income": round(ti, 2), "total_expense": round(te, 2),
