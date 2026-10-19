@@ -143,7 +143,9 @@ def cashflow(start: str = "", end: str = "", preset: str = "", _: dict = Depends
         " SUM(CASE WHEN t.direction='expense' THEN t.amount ELSE 0 END) AS exp"
         " FROM txn t JOIN accounts a ON a.id=t.account_id JOIN categories c ON c.id=t.category_id"
         f" WHERE t.biz_date BETWEEN ? AND ? AND {MONEY_K} AND {CF_KEEP}"
-        " GROUP BY a.name, a.kind ORDER BY (inc-exp) DESC", (s, e))
+        " GROUP BY a.name, a.kind"
+        " ORDER BY (SUM(CASE WHEN t.direction='income' THEN t.amount ELSE 0 END)"
+        " - SUM(CASE WHEN t.direction='expense' THEN t.amount ELSE 0 END)) DESC", (s, e))
 
     return {
         "start": s, "end": e, "rows": rows,
