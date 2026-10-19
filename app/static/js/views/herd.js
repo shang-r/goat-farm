@@ -8,15 +8,15 @@ export async function render(root) {
   S.o ||= await api('/api/goats/options');
   root.innerHTML = `
     <div class="segs">
-      <button class="${S.tab === 'now' ? 'on' : ''}" data-t="now">当前存栏</button>
-      <button class="${S.tab === 'trend' ? 'on' : ''}" data-t="trend">动态变化</button>
-      <button class="${S.tab === 'age' ? 'on' : ''}" data-t="age">日龄结构</button>
-      <button class="${S.tab === 'alert' ? 'on' : ''}" data-t="alert">饲养预警</button>
+      <button class="${S.tab === 'now' ? 'on' : ''}" data-ht="now">当前存栏</button>
+      <button class="${S.tab === 'trend' ? 'on' : ''}" data-ht="trend">动态变化</button>
+      <button class="${S.tab === 'age' ? 'on' : ''}" data-ht="age">日龄结构</button>
+      <button class="${S.tab === 'alert' ? 'on' : ''}" data-ht="alert">饲养预警</button>
     </div>
     <div id="hbody"><div class="card"><div class="skel" style="height:17px;margin-bottom:11px"></div>
       <div class="skel" style="height:17px"></div></div></div>`;
 
-  on(root, 'click', '[data-t]', (e, el) => { S.tab = el.dataset.t; render(root); });
+  on(root, 'click', '[data-ht]', (e, el) => { S.tab = el.dataset.ht; render(root); });
   const body = root.querySelector('#hbody');
   if (S.tab === 'now') return nowTab(body);
   if (S.tab === 'trend') return trendTab(body);
@@ -82,7 +82,7 @@ async function trendTab(root) {
   ]);
   root.innerHTML = `
     <div class="segs" style="margin-bottom:10px">
-      ${[30, 90, 180, 365].map(d => `<button class="${S.days === d ? 'on' : ''}" data-d="${d}">${d}天</button>`).join('')}
+      ${[30, 90, 180, 365].map(d => `<button class="${S.days === d ? 'on' : ''}" data-hd="${d}">${d}天</button>`).join('')}
     </div>
 
     <div class="card">
@@ -112,7 +112,7 @@ async function trendTab(root) {
     <div class="card">
       <div class="card-h"><span class="card-t">变动明细</span></div>
       ${mv.items.length ? `<ul class="list">${mv.items.slice(0, 80).map(m => `
-        <li data-id="${m.id}">
+        <li data-hid="${m.id}">
           <div class="avatar" style="background:${m.io === 'in' ? 'var(--brand-soft)' : 'var(--warn-soft)'};
             color:${m.io === 'in' ? 'var(--brand)' : 'var(--warn)'}">${m.io === 'in' ? '＋' : '－'}</div>
           <div class="li-main">
@@ -125,8 +125,8 @@ async function trendTab(root) {
       : `<div class="empty"><div class="ico">📋</div><div class="s">近 30 天没有存栏变动记录</div></div>`}
     </div>`;
 
-  on(root, 'click', '[data-d]', (e, el) => { S.days = +el.dataset.d; trendTab(root); });
-  on(root, 'click', 'li[data-id]', (e, el) => location.hash = '#/goat/' + el.dataset.id);
+  on(root, 'click', '[data-hd]', (e, el) => { S.days = +el.dataset.hd; trendTab(root); });
+  on(root, 'click', 'li[data-hid]', (e, el) => location.hash = '#/goat/' + el.dataset.hid);
 }
 
 // ---------- 日龄结构 ----------
@@ -208,7 +208,7 @@ async function alertTab(root) {
         return `<li><div class="li-main"><div class="li-t">母 ${x.female} 只 / 公 ${x.male} 只，比例 ${x.ratio}:1</div>
             <div class="li-s">建议再留 ${x.suggest} 只种公羊</div></div></li>`;
       const g2 = x.age_days != null ? '' : '';
-      return `<li data-id="${x.id}" style="cursor:pointer">
+      return `<li data-hid="${x.id}" style="cursor:pointer">
             <div class="avatar ${x.sex}">${esc(x.tag_no.slice(-2))}</div>
             <div class="li-main"><div class="li-t">${esc(x.tag_no)}</div>
               <div class="li-s">${esc(x.barn || '未分栏')}${x.gap ? ` · 已 ${x.gap} 天` : ''}${x.last_weigh ? ` · 上次称重 ${esc(x.last_weigh)}` : ''}</div></div>
@@ -217,5 +217,5 @@ async function alertTab(root) {
       </div>`;
   }).join('')}`;
 
-  on(root, 'click', 'li[data-id]', (e, el) => location.hash = '#/goat/' + el.dataset.id);
+  on(root, 'click', 'li[data-hid]', (e, el) => location.hash = '#/goat/' + el.dataset.hid);
 }
