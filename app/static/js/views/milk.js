@@ -6,30 +6,51 @@ import {
 
 const S = { tab: 'today', gran: 'day', months: 6, o: null, lastPrice: null };
 
+/** 统一错误卡片：接口失败时不白屏，显示提示 + 重试按钮 */
+function errCard(root, msg, fn) {
+  root.innerHTML = `<div class="card"><div class="notice i">${esc(msg)}，请检查网络后重试。</div>
+    <div class="btn-row mt12"><button class="btn btn-primary" id="retry">重试</button></div></div>`;
+  const b = root.querySelector('#retry');
+  if (b) b.onclick = () => fn(root);
+}
+
+/** 加载中占位 */
+function loadingCard(root) {
+  root.innerHTML = `<div class="card"><div class="skel" style="height:60px"></div></div>`;
+}
+
 export async function render(root) {
   S.o ||= await api('/api/milk/options');
   const sub = { today: todayTab, trend: trendTab, list: listTab }[S.tab] || todayTab;
   root.innerHTML = `
     <div class="segs">
-      <button class="${S.tab === 'today' ? 'on' : ''}" data-t="today">快捷录入</button>
-      <button class="${S.tab === 'trend' ? 'on' : ''}" data-t="trend">产量分析</button>
-      <button class="${S.tab === 'list' ? 'on' : ''}" data-t="list">明细台账</button>
+      <button class="${S.tab === 'today' ? 'on' : ''}" data-mt="today">快捷录入</button>
+      <button class="${S.tab === 'trend' ? 'on' : ''}" data-mt="trend">产量分析</button>
+      <button class="${S.tab === 'list' ? 'on' : ''}" data-mt="list">明细台账</button>
     </div>
     <div id="mbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
-  on(root, 'click', '[data-t]', (e, el) => { S.tab = el.dataset.t; render(root); });
+  on(root, 'click', '[data-mt]', (e, el) => { S.tab = el.dataset.mt; render(root); });
   await sub(root.querySelector('#mbody'));
 }
 
 // ---------- 快捷录入 ----------
 async function todayTab(root) {
-  const t = today();
-  const [d, cmp] = await Promise.all([
-    api('/api/milk/daily?start=' + addDays(t, -13) + '&end=' + t),
-    api('/api/milk/stats?start=' + monthStart() + '&end=' + t + '&gran=day'),
-  ]);
-  const last7 = d.items.slice(-7);
-  const todayRow = d.items.find(x => x.date === t);
-  const avg7 = last7.length ? last7.reduce((s, x) => s + x.weight_kg, 0) / last7.length : 0;
+  let t, d, cmp;
+  try {
+    t = today();
+    [d, cmp] = await Promise.all([
+      api('/api/milk/daily?start=' + addDays(t, -13) + '&end=' + t),
+      api('/api/milk/stats?start=' + monthStart() + '&end=' + t + '&gran=day'),
+    ]);
+    d = d || { items: [] };
+    cmp = cmp || {};
+  } catch (ex) {
+    errCard(root, '产奶数据加载失败', todayTab);
+    return;
+  }
+  const last7 = (d.items || []).slice(-7);
+  const todayRow = (d.items || []).find(x => x.date === t);
+  const avg7 = last7.length ? last7.reduce((s, x) => s + (x.weight_kg || 0), 0) / last7.length : 0;
 
   root.innerHTML = `
     <div class="card">
@@ -74,7 +95,7 @@ async function todayTab(root) {
       </div>
     </div>
 
-    ${d.items.length ? `<div class="card">
+    ${(d.items || []).length ? `<div class="card">
       <div class="card-h"><span class="card-t">每日汇总</span><span class="small muted">近 14 天</span></div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>日期</th><th>产量kg</th><th>弃奶</th><th>金额</th><th>单产</th><th></th></tr></thead>
@@ -166,19 +187,28 @@ export async function quickMilk() {
 
 // ---------- 产量分析 ----------
 async function trendTab(root) {
-  const s = monthStart(new Date(Date.now() - 179 * 864e5).toISOString().slice(0, 7));
-  const [st, cmp, o] = await Promise.all([
-    api(`/api/milk/stats?start=${s}&end=${today()}&gran=${S.gran}`),
-    api('/api/milk/compare?months=' + S.months),
-    S.o ||= api('/api/milk/options'),
-  ]);
-  const b = st.buckets;
-  const maxBucket = b.reduce((m, x) => Math.max(m, x.weight_kg), 0);
+  let st, cmp, o;
+  try {
+    const s = monthStart(new Date(Date.now() - 179 * 864e5).toISOString().slice(0, 7));
+    [st, cmp, o] = await Promise.all([
+      api(`/api/milk/stats?start=${s}&end=${today()}&gran=${S.gran}`),
+      api('/api/milk/compare?months=' + S.months),
+      S.o ||= api('/api/milk/options'),
+    ]);
+    st = st || {}; cmp = cmp || {};
+  } catch (ex) {
+    errCard(root, '产量数据加载失败', trendTab);
+    return;
+  }
+  const b = st.buckets || [];
+  const maxBucket = b.reduce((m, x) => Math.max(m, (x.weight_kg || 0)), 0);
+  const byBatch = st.by_batch || [];
+  const cmpItems = cmp.items || [];
 
   root.innerHTML = `
     <div class="segs" style="margin-bottom:10px">
       ${[['day', '按日'], ['week', '按周'], ['month', '按月']].map(([v, t]) =>
-    `<button class="${S.gran === v ? 'on' : ''}" data-g="${v}">${t}</button>`).join('')}
+    `<button class="${S.gran === v ? 'on' : ''}" data-mg="${v}">${t}</button>`).join('')}
     </div>
 
     <div class="card">
@@ -204,18 +234,18 @@ async function trendTab(root) {
       <div class="dl"><span class="muted">平均单价</span><b>${num(st.avg_price, 2)} 元/kg</b></div>
       <div class="dl"><span class="muted">在群泌乳母羊</span><b>${st.milking_heads} 头</b></div>
       <div class="dl"><span class="muted">日均单产</span><b>${num(st.per_head_today, 2)} kg/头·日</b></div>
-      ${st.buckets.at(-1)?.discard_rate > 3 ? `<div class="notice mt12" style="margin-bottom:0">
-        最近一个周期弃奶率 ${num(st.buckets.at(-1).discard_rate, 1)}%，偏高，
+      ${(b.at(-1)?.discard_rate || 0) > 3 ? `<div class="notice mt12" style="margin-bottom:0">
+        最近一个周期弃奶率 ${num(b.at(-1).discard_rate, 1)}%，偏高，
         建议检查乳房炎情况和挤奶卫生。</div>` : ''}
     </div>
 
-    ${st.by_batch.length > 1 ? `<div class="card">
+    ${byBatch.length > 1 ? `<div class="card">
       <div class="card-h"><span class="card-t">产品批次结构</span></div>
-      ${groupBar(st.by_batch.map((x, i) => ({ label: x.batch, value: x.weight_kg })), { unit: 'kg' })}
+      ${groupBar(byBatch.map((x, i) => ({ label: x.batch, value: x.weight_kg })), { unit: 'kg' })}
       <div class="hr"></div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>批次</th><th>产量kg</th><th>收入</th><th>均价</th></tr></thead>
-        <tbody>${st.by_batch.map(x => `<tr><td>${esc(x.batch)}</td><td>${num(x.weight_kg, 1)}</td>
+        <tbody>${byBatch.map(x => `<tr><td>${esc(x.batch)}</td><td>${num(x.weight_kg, 1)}</td>
           <td>${num(x.amount, 0)}</td><td>${num(x.avg_price, 2)}</td></tr>`).join('')}</tbody>
       </table></div>
     </div>` : ''}
@@ -223,35 +253,42 @@ async function trendTab(root) {
     <div class="card">
       <div class="card-h"><span class="card-t">近 ${S.months} 个月对比</span></div>
       <div class="segs" style="margin:0">
-        ${[3, 6, 12].map(n => `<button class="${S.months === n ? 'on' : ''}" data-m="${n}">${n}个月</button>`).join('')}
+        ${[3, 6, 12].map(n => `<button class="${S.months === n ? 'on' : ''}" data-mm="${n}">${n}个月</button>`).join('')}
       </div>
-      <div class="mt12">${barChart(cmp.items.map(x => ({ label: x.month.slice(2) + '月', weight_kg: x.weight_kg })),
+      <div class="mt12">${barChart(cmpItems.map(x => ({ label: x.month.slice(2) + '月', weight_kg: x.weight_kg })),
       { h: 140, series: [{ k: 'weight_kg', c: '#2b9466', name: '产量 kg' }], fmt: num })}</div>
       <div class="tbl-wrap mt12"><table class="tbl">
         <thead><tr><th>月份</th><th>产量kg</th><th>金额</th><th>均价</th><th>单产</th></tr></thead>
-        <tbody>${cmp.items.map(x => `<tr><td>${x.month}</td><td>${num(x.weight_kg, 0)}</td>
+        <tbody>${cmpItems.map(x => `<tr><td>${x.month}</td><td>${num(x.weight_kg, 0)}</td>
           <td>${num(x.amount, 0)}</td><td>${num(x.avg_price, 2)}</td><td>${num(x.per_head, 2)}</td></tr>`).join('')}
         </tbody></table></div>
     </div>`;
 
-  on(root, 'click', '[data-g]', (e, el) => { S.gran = el.dataset.g; trendTab(root); });
-  on(root, 'click', '[data-m]', (e, el) => { S.months = +el.dataset.m; trendTab(root); });
+  on(root, 'click', '[data-mg]', (e, el) => { S.gran = el.dataset.mg; trendTab(root); });
+  on(root, 'click', '[data-mm]', (e, el) => { S.months = +el.dataset.mm; trendTab(root); });
 }
 
 // ---------- 明细台账 ----------
 async function listTab(root) {
-  const start = monthStart(), end = monthEnd();
-  const [d, o] = await Promise.all([
-    api(`/api/milk?start=${start}&end=${end}&limit=300`), S.o ||= api('/api/milk/options'),
-  ]);
+  let d, o;
+  try {
+    const start = monthStart(), end = monthEnd();
+    [d, o] = await Promise.all([
+      api(`/api/milk?start=${start}&end=${end}&limit=300`), S.o ||= api('/api/milk/options'),
+    ]);
+    d = d || { items: [], total: 0 };
+  } catch (ex) {
+    errCard(root, '台账数据加载失败', listTab);
+    return;
+  }
   root.innerHTML = `
     <div class="card tight"><div class="flex between small">
-      <span class="muted">${start} ~ ${end}</span>
-      <span class="muted">${d.total} 条 · 合计 ${num(d.items.reduce((s, x) => s + x.weight_kg, 0), 1)} kg</span>
+      <span class="muted">${monthStart()} ~ ${monthEnd()}</span>
+      <span class="muted">${d.total || 0} 条 · 合计 ${num((d.items || []).reduce((s, x) => s + (x.weight_kg || 0), 0), 1)} kg</span>
     </div></div>
     <div class="card">
-      ${d.items.length ? `<ul class="list">${d.items.map(m => `
-        <li data-id="${m.id}">
+      ${(d.items || []).length ? `<ul class="list">${d.items.map(m => `
+        <li data-mid="${m.id}">
           <div class="avatar" style="background:var(--brand-soft)">🍼</div>
           <div class="li-main">
             <div class="li-t">${num(m.weight_kg, 1)} kg <span class="badge n">${esc(m.batch)}</span>
@@ -267,8 +304,9 @@ async function listTab(root) {
 
   const fab = root.querySelector('#fab');
   if (fab) fab.onclick = () => editMilk(null, today());
-  on(root, 'click', 'li[data-id]', async (e, el) => {
-    const m = d.items.find(x => x.id === +el.dataset.id);
+  on(root, 'click', 'li[data-mid]', async (e, el) => {
+    const m = (d.items || []).find(x => x.id === +el.dataset.mid);
+    if (!m) return;
     sheet({
       title: `${m.biz_date} · ${m.batch}`,
       body: `<dl class="kv">
