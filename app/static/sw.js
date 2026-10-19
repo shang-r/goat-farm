@@ -9,7 +9,7 @@
  * 接口缓存按用户隔离：cache key 里带 token 尾部，换人登录不会串数据。
  */
 
-const VER = 'v11';
+const VER = 'v12';
 const SHELL = 'shell-' + VER;
 const API = 'api-' + VER;
 const API_MAX = 24 * 3600 * 1000;   // 接口缓存保留 24 小时，超期的清掉
