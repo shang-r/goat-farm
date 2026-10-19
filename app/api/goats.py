@@ -90,7 +90,7 @@ def _auto_sale_txn(goat_id: int, biz_date: str, amount: float, note: str, user_i
         return None
     acc = db.row("SELECT id FROM accounts WHERE kind='bank' AND active=1 LIMIT 1") \
         or db.row("SELECT id FROM accounts WHERE kind IN ('cash','wechat','alipay') AND active=1 LIMIT 1")
-    cat = db.row("SELECT id FROM categories WHERE name='卖羊收入' AND active=1")
+    cat = db.row("SELECT id FROM categories WHERE name='卖羊收入' AND (active=1 OR active IS NULL)")
     if not acc or not cat:
         return None
     return db.insert(
@@ -310,7 +310,7 @@ def add_event(gid: int, body: EventIn, user: dict = Depends(require("goat.write"
             db.execute("UPDATE goat SET status=?, status_date=?, exit_price=?, exit_reason=? WHERE id=?",
                        (EXIT_MAP[body.type], body.event_date, body.amount, body.note, gid))
             if body.type == "sale" and body.amount > 0:
-                _auto_sale_txn(g["tag_no"], body.event_date, body.amount,
+                _auto_sale_txn(gid, body.event_date, body.amount,
                                body.note or "出售 " + g["tag_no"], user["id"])
         # 产羔自动建档
         if body.type == "kidding" and body.kid_tag_no.strip():
