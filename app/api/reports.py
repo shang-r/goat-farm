@@ -228,10 +228,19 @@ def balance_sheet(as_of: str = "", _: dict = Depends(require("rep.read"))):
         "SELECT COALESCE(SUM(COALESCE(buy_price,0)),0) FROM goat WHERE status='alive'", (), 0) or 0
     heads = db.scalar("SELECT COUNT(*) FROM goat WHERE status='alive'", (), 0)
 
+    # 固定资产（构筑物+设备）原值 = 资产购置科目流水，净值 = 原值 - 对应累计折旧
+    fixed_orig = db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM txn"
+        " WHERE category_id IN (39,40) AND direction='expense' AND biz_date<=?", (d,), 0) or 0
+    fixed_dep = db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM txn"
+        " WHERE category_id=22 AND (note LIKE '%建构筑物%' OR note LIKE '%设备%') AND biz_date<=?", (d,), 0) or 0
+    fixed_net = round(fixed_orig - fixed_dep, 2)
+
     year_pl = _pl(f"{d[:4]}-01-01", d)
     all_pl = _pl("2000-01-01", d)
 
-    assets = cash + recv + livestock
+    assets = cash + recv + livestock + fixed_net
     liabilities = pay + loan
     return {
         "date": d,
@@ -240,6 +249,8 @@ def balance_sheet(as_of: str = "", _: dict = Depends(require("rep.read"))):
             {"name": "应收账款", "amount": round(recv, 2), "note": "客户欠款，尚未收回"},
             {"name": "生产性生物资产（存栏）", "amount": round(livestock, 2),
              "note": f"按购入成本计，在场 {heads} 只（自繁羔羊按 0 计）"},
+            {"name": "固定资产（净值）", "amount": fixed_net,
+             "note": f"构筑物+设备 原值{round(fixed_orig,2)} 累计折旧{round(fixed_dep,2)}"},
         ],
         "liabilities": [
             {"name": "应付账款", "amount": round(pay, 2), "note": "供应商欠款，尚未支付"},
