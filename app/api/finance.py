@@ -250,11 +250,12 @@ def update_txn(tid: int, body: TxnIn, user: dict = Depends(require("fin.write"))
         raise HTTPException(400, "科目不存在")
     if cat["kind"] != body.direction:
         raise HTTPException(400, "方向与科目不符")
+    affect = body.affect if body.affect is not None else cat["affect"]
     db.execute(
         "UPDATE txn SET biz_date=?, account_id=?, category_id=?, direction=?, amount=?,"
-        " counterparty=?, note=? WHERE id=?",
+        " affect=?, counterparty=?, note=? WHERE id=?",
         (body.biz_date, body.account_id, body.category_id, body.direction,
-         round(body.amount, 2), body.counterparty, body.note, tid))
+         round(body.amount, 2), affect, body.counterparty, body.note, tid))
     return {"ok": True}
 
 
