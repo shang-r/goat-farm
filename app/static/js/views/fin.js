@@ -146,13 +146,11 @@ export async function addTxn(done, preset = {}) {
         options: acc.items.filter(a => a.active).map(a => ({ value: a.id, label: `${a.name}（余 ${money(a.balance, 0)}）` })) },
       { name: 'counterparty', label: '对方', value: '', placeholder: '如：xx饲料厂 / 张老板' },
       { name: 'note', label: '摘要', type: 'textarea', rows: 2, placeholder: '买了什么、为什么花' },
-      { name: 'affect', label: '计入利润表', type: 'select', value: 1,
-        options: [{ value: 1, label: '计入（正常经营收支）' }, { value: 0, label: '不计入（借款、转账、收回应收等往来款）' }],
-        hint: '往来款只影响账户余额，不影响利润' },
     ],
     onSubmit: async (d) => {
       d.amount = Math.abs(+d.amount);
-      d.affect = +d.affect;
+      const cat = flat.find(c => c.id === +d.category_id);
+      d.affect = cat ? cat.affect : 1;   // 强制跟随科目：往来/资产科目自动不计损益
       await POST('/api/fin/txns', d);
       ok(`已记账 ¥${money(d.amount)}`);
       done?.();
@@ -202,6 +200,8 @@ function detailSheet(t, done) {
             { name: 'note', label: '摘要', type: 'textarea', rows: 2, value: t.note },
           ],
           onSubmit: async (d) => {
+            const cat = flat.find(c => c.id === +d.category_id);
+            d.affect = cat ? cat.affect : 1;   // 编辑科目后损益属性跟随科目
             await PUT('/api/fin/txns/' + t.id,
               { ...d, direction: t.direction, amount: Math.abs(+d.amount) });
             ok('已保存'); done?.();
