@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -313,6 +313,14 @@ def operations(start: str = "", end: str = "", preset: str = "", _: dict = Depen
 
 
 # ---------------- Excel 导出 ----------------
+def _disp_width(v) -> int:
+    """按显示宽度估算（中文按 2 个字符计），用于列宽自适应"""
+    n = 0
+    for ch in str(v if v is not None else ""):
+        n += 2 if ord(ch) > 127 else 1
+    return n
+
+
 def _xlsx(sheets: list[tuple[str, list[list]]], title: str = "报表") -> bytes:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -346,7 +354,7 @@ def _xlsx(sheets: list[tuple[str, list[list]]], title: str = "报表") -> bytes:
                         cell.fill, cell.font = total_fill, total_font
         widths = []
         for ci in range(1, len(data[0]) + 1):
-            w = max((len(str(data[ri][ci - 1])) if ci - 1 < len(data[ri]) else 0)
+            w = max((_disp_width(data[ri][ci - 1]) if ci - 1 < len(data[ri]) else 0)
                     for ri in range(len(data)))
             widths.append(min(max(w + 3, 10), 42))
         for ci, w in enumerate(widths, start=1):
@@ -538,3 +546,170 @@ def export_summary(preset: str = "month", _: dict = Depends(require("rep.read"))
 @router.get("/export/summary-all")
 def export_summary_all(preset: str = "year", _: dict = Depends(require("rep.read"))):
     return export_summary(preset or "year", _)
+
+
+# ---------------- 一键导出全部业务数据 ----------------
+@router.get("/export/all")
+def export_all(_: dict = Depends(require("rep.read"))):
+    """一键导出：一个工作簿，按业务模块分工作表。
+
+    工作表：导出说明 / 羊只档案 / 羊只事件 / 产奶记录 / 财务流水 /
+            收支科目 / 资金账户 / 资产负债表 / 利润表。
+    """
+    d = rules.today_str()
+    n_goat = db.scalar("SELECT COUNT(*) FROM goat", (), 0) or 0
+    n_ev = db.scalar("SELECT COUNT(*) FROM goat_event", (), 0) or 0
+    n_milk = db.scalar("SELECT COUNT(*) FROM milk", (), 0) or 0
+    n_txn = db.scalar("SELECT COUNT(*) FROM txn", (), 0) or 0
+    n_cat = db.scalar("SELECT COUNT(*) FROM categories", (), 0) or 0
+    n_acc = db.scalar("SELECT COUNT(*) FROM accounts WHERE active=1", (), 0) or 0
+
+    # ---- 导出说明 ----
+    intro = [
+        ["羊场管家 · 全量数据导出"],
+        ["导出时间", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["数据截止日", d],
+        ["羊只档案", f"{n_goat} 只（含在场、已售、死亡等全部状态）"],
+        ["羊只事件", f"{n_ev} 条"],
+        ["产奶记录", f"{n_milk} 条"],
+        ["财务流水", f"{n_txn} 笔"],
+        ["收支科目", f"{n_cat} 个（含已停用科目，状态列有标注）"],
+        ["资金账户", f"{n_acc} 个"],
+        ["报表", "资产负债表、利润表（本年 / 建账以来累计）"],
+        [""],
+        ["口径说明"],
+        ["1. 一个工作表对应一个业务模块，可直接筛选、排序、透视。"],
+        ["2. 财务流水「计入损益=否」的是股东投入、借款、内部转账等资金往来，不进利润表。"],
+        ["3. 生物资产按购入成本计价，自繁羔羊成本为 0。"],
+        ["4. 固定资产净值 = 构筑物 + 设备原值 − 累计折旧（按准则计提）。"],
+        ["5. 产奶记录为空属正常情况：系统尚未录入产奶数据。"],
+    ]
+
+    # ---- 羊只档案（全部状态）----
+    goat_rows = [["耳标号", "名称", "性别", "品种", "生产群", "出生日期", "状态", "状态日期",
+                  "栏舍", "来源", "购入价", "退出原因", "退出金额", "父耳标", "母耳标",
+                  "断奶日期", "首配日期", "泌乳角色", "备注", "建档时间"]]
+    for r in db.rows("SELECT * FROM goat ORDER BY tag_no"):
+        g = dict(r)
+        goat_rows.append([
+            g["tag_no"], g["name"], "公" if g["sex"] == "m" else "母", g["breed"],
+            rules.GROUP_NAME.get(rules.group_of(g, d), ""), g["birth_date"],
+            rules.GOAT_STATUS.get(g["status"], g["status"]), g["status_date"],
+            g["barn"], g["source"], g["buy_price"], g["exit_reason"], g["exit_price"],
+            g["sire_tag"], g["dam_tag"], g["weaned_date"], g["first_kidding"],
+            g["milk_role"], g["note"], g["created_at"],
+        ])
+
+    # ---- 羊只事件 ----
+    ev_rows = [["事件日期", "耳标号", "事件类型", "栏舍", "体重(kg)", "金额(元)",
+                "奶量(kg)", "批次", "备注", "记录人", "记录时间"]]
+    for r in db.rows(
+        "SELECT e.event_date, g.tag_no, e.type, e.barn, e.weight, e.amount, e.milk_qty,"
+        " e.batch, e.note, u.full_name usr, e.created_at"
+        " FROM goat_event e JOIN goat g ON g.id = e.goat_id"
+        " LEFT JOIN users u ON u.id = e.user_id"
+        " ORDER BY e.event_date, e.id"
+    ):
+        ev_rows.append([r["event_date"], r["tag_no"],
+                        rules.EVENT_TYPES.get(r["type"], r["type"]), r["barn"],
+                        r["weight"], r["amount"], r["milk_qty"], r["batch"],
+                        r["note"], r["usr"], r["created_at"]])
+
+    # ---- 产奶记录 ----
+    milk_rows = [["日期", "班组代码", "批次", "重量(kg)", "废弃(kg)", "单价(元/kg)",
+                  "金额(元)", "等级", "班次", "备注", "记录人", "记录时间"]]
+    for r in db.rows(
+        "SELECT m.biz_date, m.group_code, m.batch, m.weight_kg, m.discard_kg, m.price,"
+        " m.amount, m.grade, m.shift, m.note, u.full_name usr, m.created_at"
+        " FROM milk m LEFT JOIN users u ON u.id = m.user_id"
+        " ORDER BY m.biz_date, m.id"
+    ):
+        milk_rows.append([r["biz_date"], r["group_code"], r["batch"], r["weight_kg"],
+                          r["discard_kg"], r["price"], r["amount"], r["grade"],
+                          r["shift"], r["note"], r["usr"], r["created_at"]])
+
+    # ---- 财务流水（全量）----
+    txn_rows = [["日期", "方向", "科目分组", "科目", "金额(元)", "计入损益",
+                 "账户", "对方", "摘要", "关联类型", "关联ID", "经手人", "录入时间"]]
+    for r in db.rows(
+        "SELECT t.biz_date, t.direction, c.group_name grp, c.name cat, t.amount, t.affect,"
+        " a.name acct, t.counterparty, t.note, t.link_type, t.link_id,"
+        " u.full_name usr, t.created_at"
+        " FROM txn t JOIN accounts a ON a.id = t.account_id"
+        " JOIN categories c ON c.id = t.category_id"
+        " LEFT JOIN users u ON u.id = t.user_id"
+        " ORDER BY t.biz_date, t.id"
+    ):
+        txn_rows.append([r["biz_date"], "收入" if r["direction"] == "income" else "支出",
+                         r["grp"], r["cat"], r["amount"],
+                         "是" if r["affect"] else "否", r["acct"], r["counterparty"],
+                         r["note"], r["link_type"], r["link_id"], r["usr"],
+                         r["created_at"]])
+
+    # ---- 收支科目（含停用）----
+    cat_rows = [["科目ID", "科目名称", "方向", "分组", "计入损益", "排序", "状态"]]
+    for r in db.rows("SELECT * FROM categories ORDER BY kind DESC, sort, id"):
+        cat_rows.append([r["id"], r["name"], "收入" if r["kind"] == "income" else "支出",
+                         r["group_name"], "是" if r["affect"] else "否", r["sort"],
+                         "启用" if r["active"] else "停用"])
+
+    # ---- 资金账户（含余额）----
+    acc_rows = [["账户ID", "账户名称", "类型", "是否资金账户", "期初余额", "期初日期",
+                 "累计收入", "累计支出", "当前余额", "备注"]]
+    for r in db.rows("SELECT id FROM accounts WHERE active=1 ORDER BY id"):
+        b = _balance(r["id"], d)
+        acc_rows.append([b.get("id"), b.get("name"), b.get("kind_name"),
+                         "是" if b.get("is_money") else "否", b.get("opening_balance"),
+                         b.get("opening_date"), b.get("income"), b.get("expense"),
+                         b.get("balance"), b.get("note")])
+
+    # ---- 资产负债表 ----
+    bs = balance_sheet("", {})
+    bs_rows = [["项目", "金额(元)", "说明"]]
+    for a in bs["assets"]:
+        bs_rows.append([a["name"], a["amount"], a.get("note", "")])
+    bs_rows.append(["资产合计", bs["totals"]["assets"], ""])
+    bs_rows.append(["", "", ""])
+    for x in bs["liabilities"]:
+        bs_rows.append([x["name"], x["amount"], x.get("note", "")])
+    bs_rows.append(["负债合计", bs["totals"]["liabilities"], ""])
+    bs_rows.append(["", "", ""])
+    bs_rows.append(["净资产（资产-负债）", bs["totals"]["net_asset"], ""])
+    bs_rows.append(["本年累计利润", bs["totals"]["year_profit"], ""])
+    bs_rows.append(["建账以来累计利润", bs["totals"]["cum_profit"], ""])
+    bs_rows.append(["在场存栏（只）", bs["totals"]["heads"], ""])
+
+    # ---- 利润表（本年 + 累计）----
+    pl_rows = []
+
+    def _add_pl(label: str, pl: dict):
+        pl_rows.append([label])
+        pl_rows.append(["科目类别", "明细科目", "金额(元)", "笔数"])
+        for g in pl["income"]:
+            for i in g["items"]:
+                pl_rows.append([g["group"], i["name"], i["amount"], i["count"]])
+        pl_rows.append(["收入合计", "", pl["total_income"], ""])
+        pl_rows.append(["", "", "", ""])
+        for g in pl["expense"]:
+            for i in g["items"]:
+                pl_rows.append([g["group"], i["name"], i["amount"], i["count"]])
+        pl_rows.append(["支出合计", "", pl["total_expense"], ""])
+        pl_rows.append(["利润（收入-支出）", "", pl["profit"], ""])
+        pl_rows.append(["利润率%", "", pl["margin"], ""])
+        pl_rows.append(["", "", "", ""])
+
+    _add_pl(f"一、本年 {d[:4]}-01-01 ~ {d}", _pl(f"{d[:4]}-01-01", d))
+    _add_pl(f"二、建账以来 2000-01-01 ~ {d}（累计）", _pl("2000-01-01", d))
+
+    sheets = [
+        ("导出说明", intro),
+        ("羊只档案", goat_rows),
+        ("羊只事件", ev_rows),
+        ("产奶记录", milk_rows),
+        ("财务流水", txn_rows),
+        ("收支科目", cat_rows),
+        ("资金账户", acc_rows),
+        ("资产负债表", bs_rows),
+        ("利润表", pl_rows),
+    ]
+    return _send(_xlsx(sheets, "羊场数据导出"), f"羊场数据导出_{d}.xlsx")
