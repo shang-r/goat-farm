@@ -550,17 +550,27 @@ def export_summary_all(preset: str = "year", _: dict = Depends(require("rep.read
 
 # ---------------- 一键导出全部业务数据 ----------------
 @router.get("/export/all")
-def export_all(_: dict = Depends(require("rep.read"))):
+def export_all(start: str = "", end: str = "", preset: str = "",
+               _: dict = Depends(require("rep.read"))):
     """一键导出：一个工作簿，按业务模块分工作表。
 
     工作表：导出说明 / 羊只档案 / 羊只事件 / 产奶记录 / 财务流水 /
             收支科目 / 资金账户 / 资产负债表 / 利润表。
+    start/end 指定区间；只给 preset 则按其周期；都不给 = 全部历史数据。
     """
-    d = rules.today_str()
+    if start and end:
+        s, e = start, end
+    elif preset:
+        s, e = rules.period_range(preset)
+    else:                     # 无参数 = 全部历史数据
+        s, e = "2000-01-01", rules.today_str()
     n_goat = db.scalar("SELECT COUNT(*) FROM goat", (), 0) or 0
-    n_ev = db.scalar("SELECT COUNT(*) FROM goat_event", (), 0) or 0
-    n_milk = db.scalar("SELECT COUNT(*) FROM milk", (), 0) or 0
-    n_txn = db.scalar("SELECT COUNT(*) FROM txn", (), 0) or 0
+    n_ev = db.scalar("SELECT COUNT(*) FROM goat_event WHERE event_date BETWEEN ? AND ?",
+                     (s, e), 0) or 0
+    n_milk = db.scalar("SELECT COUNT(*) FROM milk WHERE biz_date BETWEEN ? AND ?",
+                       (s, e), 0) or 0
+    n_txn = db.scalar("SELECT COUNT(*) FROM txn WHERE biz_date BETWEEN ? AND ?",
+                      (s, e), 0) or 0
     n_cat = db.scalar("SELECT COUNT(*) FROM categories", (), 0) or 0
     n_acc = db.scalar("SELECT COUNT(*) FROM accounts WHERE active=1", (), 0) or 0
 
@@ -568,14 +578,14 @@ def export_all(_: dict = Depends(require("rep.read"))):
     intro = [
         ["羊场管家 · 全量数据导出"],
         ["导出时间", datetime.now().strftime("%Y-%m-%d %H:%M")],
-        ["数据截止日", d],
-        ["羊只档案", f"{n_goat} 只（含在场、已售、死亡等全部状态）"],
-        ["羊只事件", f"{n_ev} 条"],
-        ["产奶记录", f"{n_milk} 条"],
-        ["财务流水", f"{n_txn} 笔"],
+        ["数据区间", f"{s} ~ {e}"],
+        ["羊只档案", f"{n_goat} 只（全部状态，不按区间筛选）"],
+        ["羊只事件", f"{n_ev} 条（按事件日期在区间内）"],
+        ["产奶记录", f"{n_milk} 条（按日期在区间内）"],
+        ["财务流水", f"{n_txn} 笔（按记账日期在区间内）"],
         ["收支科目", f"{n_cat} 个（含已停用科目，状态列有标注）"],
-        ["资金账户", f"{n_acc} 个"],
-        ["报表", "资产负债表、利润表（本年 / 建账以来累计）"],
+        ["资金账户", f"{n_acc} 个（余额截至 {e}）"],
+        ["报表", f"资产负债表截至 {e}；利润表含所选区间与建账以来累计"],
         [""],
         ["口径说明"],
         ["1. 一个工作表对应一个业务模块，可直接筛选、排序、透视。"],
@@ -583,6 +593,7 @@ def export_all(_: dict = Depends(require("rep.read"))):
         ["3. 生物资产按购入成本计价，自繁羔羊成本为 0。"],
         ["4. 固定资产净值 = 构筑物 + 设备原值 − 累计折旧（按准则计提）。"],
         ["5. 产奶记录为空属正常情况：系统尚未录入产奶数据。"],
+        ["6. 流水、羊只事件、产奶、利润表按所选区间筛选；羊只档案、收支科目为全量数据。"],
     ]
 
     # ---- 羊只档案（全部状态）----
@@ -593,7 +604,7 @@ def export_all(_: dict = Depends(require("rep.read"))):
         g = dict(r)
         goat_rows.append([
             g["tag_no"], g["name"], "公" if g["sex"] == "m" else "母", g["breed"],
-            rules.GROUP_NAME.get(rules.group_of(g, d), ""), g["birth_date"],
+            rules.GROUP_NAME.get(rules.group_of(g, e), ""), g["birth_date"],
             rules.GOAT_STATUS.get(g["status"], g["status"]), g["status_date"],
             g["barn"], g["source"], g["buy_price"], g["exit_reason"], g["exit_price"],
             g["sire_tag"], g["dam_tag"], g["weaned_date"], g["first_kidding"],
@@ -608,7 +619,8 @@ def export_all(_: dict = Depends(require("rep.read"))):
         " e.batch, e.note, u.full_name usr, e.created_at"
         " FROM goat_event e JOIN goat g ON g.id = e.goat_id"
         " LEFT JOIN users u ON u.id = e.user_id"
-        " ORDER BY e.event_date, e.id"
+        " WHERE e.event_date BETWEEN ? AND ?"
+        " ORDER BY e.event_date, e.id", (s, e)
     ):
         ev_rows.append([r["event_date"], r["tag_no"],
                         rules.EVENT_TYPES.get(r["type"], r["type"]), r["barn"],
@@ -622,7 +634,8 @@ def export_all(_: dict = Depends(require("rep.read"))):
         "SELECT m.biz_date, m.group_code, m.batch, m.weight_kg, m.discard_kg, m.price,"
         " m.amount, m.grade, m.shift, m.note, u.full_name usr, m.created_at"
         " FROM milk m LEFT JOIN users u ON u.id = m.user_id"
-        " ORDER BY m.biz_date, m.id"
+        " WHERE m.biz_date BETWEEN ? AND ?"
+        " ORDER BY m.biz_date, m.id", (s, e)
     ):
         milk_rows.append([r["biz_date"], r["group_code"], r["batch"], r["weight_kg"],
                           r["discard_kg"], r["price"], r["amount"], r["grade"],
@@ -638,7 +651,8 @@ def export_all(_: dict = Depends(require("rep.read"))):
         " FROM txn t JOIN accounts a ON a.id = t.account_id"
         " JOIN categories c ON c.id = t.category_id"
         " LEFT JOIN users u ON u.id = t.user_id"
-        " ORDER BY t.biz_date, t.id"
+        " WHERE t.biz_date BETWEEN ? AND ?"
+        " ORDER BY t.biz_date, t.id", (s, e)
     ):
         txn_rows.append([r["biz_date"], "收入" if r["direction"] == "income" else "支出",
                          r["grp"], r["cat"], r["amount"],
@@ -657,14 +671,14 @@ def export_all(_: dict = Depends(require("rep.read"))):
     acc_rows = [["账户ID", "账户名称", "类型", "是否资金账户", "期初余额", "期初日期",
                  "累计收入", "累计支出", "当前余额", "备注"]]
     for r in db.rows("SELECT id FROM accounts WHERE active=1 ORDER BY id"):
-        b = _balance(r["id"], d)
+        b = _balance(r["id"], e)
         acc_rows.append([b.get("id"), b.get("name"), b.get("kind_name"),
                          "是" if b.get("is_money") else "否", b.get("opening_balance"),
                          b.get("opening_date"), b.get("income"), b.get("expense"),
                          b.get("balance"), b.get("note")])
 
     # ---- 资产负债表 ----
-    bs = balance_sheet("", {})
+    bs = balance_sheet(e, {})
     bs_rows = [["项目", "金额(元)", "说明"]]
     for a in bs["assets"]:
         bs_rows.append([a["name"], a["amount"], a.get("note", "")])
@@ -698,8 +712,8 @@ def export_all(_: dict = Depends(require("rep.read"))):
         pl_rows.append(["利润率%", "", pl["margin"], ""])
         pl_rows.append(["", "", "", ""])
 
-    _add_pl(f"一、本年 {d[:4]}-01-01 ~ {d}", _pl(f"{d[:4]}-01-01", d))
-    _add_pl(f"二、建账以来 2000-01-01 ~ {d}（累计）", _pl("2000-01-01", d))
+    _add_pl(f"一、所选区间 {s} ~ {e}", _pl(s, e))
+    _add_pl(f"二、建账以来 2000-01-01 ~ {e}（累计）", _pl("2000-01-01", e))
 
     sheets = [
         ("导出说明", intro),
@@ -712,4 +726,4 @@ def export_all(_: dict = Depends(require("rep.read"))):
         ("资产负债表", bs_rows),
         ("利润表", pl_rows),
     ]
-    return _send(_xlsx(sheets, "羊场数据导出"), f"羊场数据导出_{d}.xlsx")
+    return _send(_xlsx(sheets, "羊场数据导出"), f"羊场数据导出_{s}_{e}.xlsx")
