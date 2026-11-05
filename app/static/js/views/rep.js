@@ -1,9 +1,9 @@
 import {
-  api, esc, num, money, wan, store, ok, sheet, on, barChart, groupBar,
+  api, esc, num, money, wan, store, ok, err, sheet, on, barChart, groupBar,
   emptyBox, download, today,
 } from '../core.js';
 
-const S = { tab: 'profit', preset: 'month', start: '', end: '' };
+const S = { tab: 'profit', preset: 'month', start: '', end: '', expS: '', expE: '' };
 
 const PRESETS = [
   ['month', '本月'], ['last_month', '上月'], ['quarter', '本季'], ['year', '本年'], ['last_30', '近30天'],
@@ -12,6 +12,8 @@ const PRESET_SQL = { last_month: 'prev_month' };
 
 export async function render(root) {
   const sub = { profit: profitTab, cash: cashTab, sheet: sheetTab, ledger: ledgerTab, ops: opsTab }[S.tab] || profitTab;
+  const s0 = S.expS || (today().slice(0, 4) + '-01-01');
+  const e0 = S.expE || today();
   root.innerHTML = `
     <div class="segs">
       <button class="${S.tab === 'profit' ? 'on' : ''}" data-rt="profit">利润表</button>
@@ -20,14 +22,29 @@ export async function render(root) {
       <button class="${S.tab === 'ledger' ? 'on' : ''}" data-rt="ledger">科目汇总</button>
       <button class="${S.tab === 'ops' ? 'on' : ''}" data-rt="ops">经营分析</button>
     </div>
-    <div class="flex mt8" style="gap:8px">
-      <button class="btn btn-primary" id="expAll" style="flex:1">⬇ 一键导出全部数据（Excel）</button>
-    </div>
-    <div id="rbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
+    <div id="rbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-h"><span class="card-t">📊 数据导出</span>
+        <span class="small muted">Excel · 9 个工作表</span></div>
+      <div class="flex" style="gap:8px">
+        <div class="f grow"><span class="f-lb">开始日期</span>
+          <input type="date" id="expS" value="${s0}"></div>
+        <div class="f grow"><span class="f-lb">结束日期</span>
+          <input type="date" id="expE" value="${e0}"></div>
+      </div>
+      <button class="btn btn-primary btn-block mt12" id="expAll">⬇ 一键导出全部数据（Excel）</button>
+      <div class="small muted mt8">流水、羊只事件、产奶、利润表按所选区间；
+        羊只档案、收支科目为全量；资产负债表与账户余额截至结束日期。</div>
+    </div>`;
   on(root, 'click', '[data-rt]', (e, el) => { S.tab = el.dataset.rt; render(root); });
   on(root, 'click', '#expAll', () => {
-    download(`/api/rep/export/all?preset=${p()}&token=${store.token}`);
-    ok('正在导出当前周期全部数据，请稍候');
+    const sEl = root.querySelector('#expS'), eEl = root.querySelector('#expE');
+    const s = (sEl && sEl.value) || '2000-01-01';
+    const e = (eEl && eEl.value) || today();
+    if (s > e) { err('开始日期不能晚于结束日期'); return; }
+    S.expS = s; S.expE = e;
+    download(`/api/rep/export/all?start=${s}&end=${e}&token=${store.token}`);
+    ok('正在生成 Excel，首次可能要等几十秒');
   });
   await sub(root.querySelector('#rbody'));
 }
