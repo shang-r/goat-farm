@@ -26,8 +26,8 @@ export async function render(root) {
     <div id="rbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
   on(root, 'click', '[data-rt]', (e, el) => { S.tab = el.dataset.rt; render(root); });
   on(root, 'click', '#expAll', () => {
-    download(`/api/rep/export/all?token=${store.token}`);
-    ok('正在导出全部数据，文件较大请稍候');
+    download(`/api/rep/export/all?preset=${p()}&token=${store.token}`);
+    ok('正在导出当前周期全部数据，请稍候');
   });
   await sub(root.querySelector('#rbody'));
 }
