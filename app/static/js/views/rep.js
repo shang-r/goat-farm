@@ -20,8 +20,15 @@ export async function render(root) {
       <button class="${S.tab === 'ledger' ? 'on' : ''}" data-rt="ledger">科目汇总</button>
       <button class="${S.tab === 'ops' ? 'on' : ''}" data-rt="ops">经营分析</button>
     </div>
+    <div class="flex mt8" style="gap:8px">
+      <button class="btn btn-primary" id="expAll" style="flex:1">⬇ 一键导出全部数据（Excel）</button>
+    </div>
     <div id="rbody"><div class="card"><div class="skel" style="height:17px"></div></div></div>`;
   on(root, 'click', '[data-rt]', (e, el) => { S.tab = el.dataset.rt; render(root); });
+  on(root, 'click', '#expAll', () => {
+    download(`/api/rep/export/all?token=${store.token}`);
+    ok('正在导出全部数据，文件较大请稍候');
+  });
   await sub(root.querySelector('#rbody'));
 }
 
