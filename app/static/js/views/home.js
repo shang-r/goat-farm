@@ -1,4 +1,4 @@
-import { api, esc, num, wan, money, delta, store } from '../core.js';
+import { api, esc, num, wan, money, delta, store, download, today, ok, err } from '../core.js';
 
 const S = { p: 'home' };
 
@@ -74,13 +74,41 @@ export async function render(root) {
           </div>
           <div class="li-v ${r.direction === 'income' ? 'in' : 'out'}">${r.direction === 'income' ? '+' : '−'}${money(r.amount)}</div>
         </li>`).join('')}</ul>
-    </div>` : `<div class="card">${quickStart(store)}</div>`}`;
+    </div>` : `<div class="card">${quickStart(store)}</div>`}
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-h"><span class="card-t">📊 数据导出</span>
+        <span class="small muted">Excel · 9 个工作表</span></div>
+      <div class="flex" style="gap:8px">
+        <div class="f grow"><span class="f-lb">开始日期</span>
+          <input type="date" id="expS" value="${today().slice(0, 4)}-01-01"></div>
+        <div class="f grow"><span class="f-lb">结束日期</span>
+          <input type="date" id="expE" value="${today()}"></div>
+      </div>
+      <button class="btn btn-primary btn-block mt12" id="expAll">⬇ 一键导出（全部模块）</button>
+      <div class="small muted mt8">流水、羊只事件、产奶、利润表按所选区间；
+        羊只档案、收支科目为全量；资产负债表与账户余额截至结束日期。</div>
+    </div>`;
 
   root.insertAdjacentHTML('beforeend', `
     ${store.can('milk.write') ? `<button class="fab" data-act="quick-milk" aria-label="快速记产奶">🍼</button>` : ''}`);
 
   const fab = root.querySelector('[data-act="quick-milk"]');
   if (fab) fab.onclick = () => import('./milk.js').then(m => m.quickMilk());
+
+  const sEl = root.querySelector('#expS');
+  const eEl = root.querySelector('#expE');
+  const btnAll = root.querySelector('#expAll');
+  if (btnAll) {
+    btnAll.onclick = () => {
+      const s = (sEl && sEl.value) || '2000-01-01';
+      const e = (eEl && eEl.value) || today();
+      if (s > e) { err('开始日期不能晚于结束日期'); return; }
+      download(`/api/rep/export/all?start=${s}&end=${e}&token=${store.token}`);
+      ok('正在生成 Excel，首次可能要等几十秒');
+    };
+  }
+
   document.title = `羊场管家 · ${h.total}只`;
 }
 
