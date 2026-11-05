@@ -58,7 +58,9 @@ export async function render(root) {
 
     <div class="card">
       <div class="card-h"><span class="card-t">📊 数据导出</span><span class="small muted">Excel 格式</span></div>
-      <div class="flex wrap" style="gap:8px">
+      <button class="btn btn-primary btn-block" data-dl="/api/rep/export/all">⬇ 一键导出全部数据（9 个工作表）</button>
+      <div class="small muted mt8">含羊只档案、羊只事件、产奶、流水、科目、账户、资产负债表、利润表</div>
+      <div class="flex wrap mt12" style="gap:8px">
         <button class="btn btn-sm" data-dl="/api/rep/export/herd">存栏档案</button>
         <button class="btn btn-sm" data-dl="/api/rep/export/milk?preset=year">产奶记录(年)</button>
         <button class="btn btn-sm" data-dl="/api/rep/export/txns?preset=year">流水(年)</button>
